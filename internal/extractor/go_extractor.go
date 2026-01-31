@@ -41,6 +41,9 @@ func (g *GoExtractor) ExtractUnit(captureName string, node *sitter.Node, sourceC
 	if unit != nil {
 		unit.Package = packageName
 		unit.Language = "go"
+		if unit.Relations == nil {
+			unit.Relations = []Relation{}
+		}
 	}
 	return unit
 }
@@ -108,16 +111,33 @@ func (g *GoExtractor) extractTypeUnit(node *sitter.Node, sourceCode []byte, file
 
 	var details interface{}
 	var unitType string
+	relations := []Relation{}
 
 	typeNode := node.ChildByFieldName("type")
 	if typeNode != nil {
 		switch typeNode.Type() {
 		case "struct_type":
 			unitType = "struct"
-			details = g.extractStructDetails(typeNode, sourceCode)
+			structDetails := g.extractStructDetails(typeNode, sourceCode)
+			details = structDetails
+			for _, field := range structDetails.Fields {
+				kind := "uses_type"
+				if field.Name == field.Type || strings.HasSuffix(field.Type, "."+field.Name) {
+					kind = "embeds"
+				}
+				if isUserDefinedType(field.Type) {
+					relations = append(relations, Relation{Target: field.Type, Kind: kind})
+				}
+			}
 		case "interface_type":
 			unitType = "interface"
-			details = g.extractInterfaceDetails(typeNode, sourceCode)
+			interfaceDetails := g.extractInterfaceDetails(typeNode, sourceCode)
+			details = interfaceDetails
+			for _, method := range interfaceDetails.Methods {
+				if !strings.Contains(method.Signature, "(") && isUserDefinedType(method.Signature) {
+					relations = append(relations, Relation{Target: method.Signature, Kind: "embeds"})
+				}
+			}
 		default:
 			unitType = "type"
 		}
@@ -133,6 +153,7 @@ func (g *GoExtractor) extractTypeUnit(node *sitter.Node, sourceCode []byte, file
 		Name:        name,
 		Description: docComment,
 		Details:     details,
+		Relations:   relations,
 	}
 }
 
@@ -255,25 +276,42 @@ func (g *GoExtractor) extractFunctionUnit(node *sitter.Node, sourceCode []byte, 
 		Parameters: []GoParam{},
 		Returns:    []GoReturn{},
 	}
+	relations := []Relation{}
 
 	if node.Type() == "method_declaration" {
 		unitType = "method"
 		if receiverNode := node.ChildByFieldName("receiver"); receiverNode != nil {
 			details.Receiver = receiverNode.Content(sourceCode)
+			recvType := extractBaseType(details.Receiver)
+			if recvType != "" {
+				relations = append(relations, Relation{Target: recvType, Kind: "belongs_to"})
+			}
 		}
 	}
 
 	docComment := g.extractDocComment(node, sourceCode)
 	if paramsNode := node.ChildByFieldName("parameters"); paramsNode != nil {
 		details.Parameters = g.extractParams(paramsNode, sourceCode)
+		for _, p := range details.Parameters {
+			if isUserDefinedType(p.Type) {
+				relations = append(relations, Relation{Target: p.Type, Kind: "uses_type"})
+			}
+		}
 	}
 	if resultNode := node.ChildByFieldName("result"); resultNode != nil {
 		details.Returns = g.extractReturns(resultNode, sourceCode)
+		for _, r := range details.Returns {
+			if isUserDefinedType(r.Type) {
+				relations = append(relations, Relation{Target: r.Type, Kind: "uses_type"})
+			}
+		}
 	}
 
 	bodyNode := node.ChildByFieldName("body")
 	if bodyNode != nil {
 		details.Signature = strings.TrimSpace(string(sourceCode[node.StartByte():bodyNode.StartByte()]))
+		bodyRelations := g.extractBodyRelations(bodyNode, sourceCode)
+		relations = append(relations, bodyRelations...)
 	} else {
 		details.Signature = content
 	}
@@ -288,7 +326,87 @@ func (g *GoExtractor) extractFunctionUnit(node *sitter.Node, sourceCode []byte, 
 		Name:        name,
 		Description: docComment,
 		Details:     details,
+		Relations:   relations,
 	}
+}
+
+func (g *GoExtractor) extractBodyRelations(bodyNode *sitter.Node, sourceCode []byte) []Relation {
+	relations := []Relation{}
+	seen := make(map[string]bool)
+	var visit func(*sitter.Node)
+	visit = func(n *sitter.Node) {
+		var target string
+		var kind string
+		switch n.Type() {
+		case "call_expression":
+			fnNode := n.ChildByFieldName("function")
+			if fnNode != nil {
+				target = fnNode.Content(sourceCode)
+				kind = "calls"
+			}
+		case "composite_literal":
+			typeNode := n.ChildByFieldName("type")
+			if typeNode != nil {
+				target = typeNode.Content(sourceCode)
+				kind = "instantiates"
+			}
+		}
+		if target != "" && !seen[target] {
+			if !isNoise(target) {
+				relations = append(relations, Relation{Target: target, Kind: kind})
+				seen[target] = true
+			}
+		}
+		for i := 0; i < int(n.ChildCount()); i++ {
+			visit(n.Child(i))
+		}
+	}
+	visit(bodyNode)
+	return relations
+}
+
+func isNoise(target string) bool {
+	builtins := map[string]bool{
+		"append": true, "cap": true, "close": true, "complex": true, "copy": true,
+		"delete": true, "imag": true, "len": true, "make": true, "new": true,
+		"panic": true, "print": true, "println": true, "real": true, "recover": true,
+	}
+	if builtins[target] {
+		return true
+	}
+	stdlibs := []string{
+		"fmt.", "os.", "context.", "errors.", "time.", "strings.", "sync.",
+		"json.", "http.", "io.", "log.", "bytes.", "reflect.",
+	}
+	for _, std := range stdlibs {
+		if strings.HasPrefix(target, std) {
+			return true
+		}
+	}
+	return false
+}
+
+func isUserDefinedType(t string) bool {
+	primitives := map[string]bool{
+		"bool": true, "string": true, "int": true, "int8": true, "int16": true, "int32": true, "int64": true,
+		"uint": true, "uint8": true, "uint16": true, "uint32": true, "uint64": true, "uintptr": true,
+		"byte": true, "rune": true, "float32": true, "float64": true, "complex64": true, "complex128": true,
+		"error": true, "interface{}": true, "any": true,
+	}
+	base := strings.TrimPrefix(t, "*")
+	base = strings.TrimPrefix(base, "[]")
+	return !primitives[base]
+}
+
+func extractBaseType(receiver string) string {
+	content := strings.Trim(receiver, "()")
+	parts := strings.Fields(content)
+	t := content
+	if len(parts) > 1 {
+		t = parts[1]
+	}
+	t = strings.TrimPrefix(t, "*")
+	return t
 }
 
 func (g *GoExtractor) extractConstUnit(node *sitter.Node, sourceCode []byte, filepath string) *CodeUnit {
@@ -306,7 +424,6 @@ func (g *GoExtractor) extractConstUnit(node *sitter.Node, sourceCode []byte, fil
 	if docComment == "" && parentNode.Type() == "const_declaration" {
 		docComment = g.extractDocComment(node, sourceCode)
 	}
-
 	details := GoConstDetails{}
 	if typeNode := node.ChildByFieldName("type"); typeNode != nil {
 		details.Type = typeNode.Content(sourceCode)
@@ -314,7 +431,6 @@ func (g *GoExtractor) extractConstUnit(node *sitter.Node, sourceCode []byte, fil
 	if valueNode := node.ChildByFieldName("value"); valueNode != nil {
 		details.Value = valueNode.Content(sourceCode)
 	}
-
 	return &CodeUnit{
 		ID:          fmt.Sprintf("%s:%s:%d", filepath, name, node.StartPoint().Row+1),
 		Filepath:    filepath,
@@ -340,7 +456,6 @@ func (g *GoExtractor) extractVarUnit(node *sitter.Node, sourceCode []byte, filep
 	}
 	content := node.Content(sourceCode)
 	docComment := g.extractDocComment(parentNode, sourceCode)
-
 	details := GoVarDetails{}
 	if typeNode := node.ChildByFieldName("type"); typeNode != nil {
 		details.Type = typeNode.Content(sourceCode)
@@ -348,7 +463,6 @@ func (g *GoExtractor) extractVarUnit(node *sitter.Node, sourceCode []byte, filep
 	if valueNode := node.ChildByFieldName("value"); valueNode != nil {
 		details.Value = valueNode.Content(sourceCode)
 	}
-
 	return &CodeUnit{
 		ID:          fmt.Sprintf("%s:%s:%d", filepath, name, node.StartPoint().Row+1),
 		Filepath:    filepath,

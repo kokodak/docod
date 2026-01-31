@@ -25,7 +25,42 @@ func TestExtractor_ExtractFromFile(t *testing.T) {
 	}
 
 	t.Run("Overall Count", func(t *testing.T) {
-		assert.Equal(t, 9, len(units), "Should extract exactly 9 code units (Base, User, Handler, MyFunc, MyMethod, Version, StatusOK, StatusError, GlobalVar)")
+		// Base, User, Handler, MyFunc, MyFunction, MyMethod, Version, StatusOK, StatusError, GlobalVar
+		assert.Equal(t, 10, len(units))
+	})
+
+	t.Run("Body Relations and Sanitization", func(t *testing.T) {
+		// Check MyFunc calls MyFunction
+		myFunc := unitsByName["MyFunc"]
+		require.NotNil(t, myFunc)
+		var foundCall bool
+		for _, rel := range myFunc.Relations {
+			if rel.Target == "MyFunction" && rel.Kind == "calls" {
+				foundCall = true
+			}
+		}
+		assert.True(t, foundCall, "MyFunc should call MyFunction")
+
+		// Check MyMethod instantiates Base
+		myMethod := unitsByName["MyMethod"]
+		require.NotNil(t, myMethod)
+		var foundBaseInstantiation bool
+		var foundFmtCall bool
+		var foundMakeCall bool
+		for _, rel := range myMethod.Relations {
+			if rel.Target == "Base" && rel.Kind == "instantiates" {
+				foundBaseInstantiation = true
+			}
+			if strings.HasPrefix(rel.Target, "fmt.") {
+				foundFmtCall = true
+			}
+			if rel.Target == "make" {
+				foundMakeCall = true
+			}
+		}
+		assert.True(t, foundBaseInstantiation, "MyMethod should instantiate Base")
+		assert.False(t, foundFmtCall, "Standard library 'fmt' should be sanitized")
+		assert.False(t, foundMakeCall, "Built-in 'make' should be sanitized")
 	})
 
 	t.Run("Package Name", func(t *testing.T) {

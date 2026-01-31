@@ -11,10 +11,17 @@ type CodeUnit struct {
 	StartLine   int         `json:"start_line"`
 	EndLine     int         `json:"end_line"`
 	Content     string      `json:"content"`
-	UnitType    string      `json:"unit_type"` // e.g., "function", "class", "interface", "variable"
+	UnitType    string      `json:"unit_type"`
 	Name        string      `json:"name"`
 	Description string      `json:"description"`
-	Details     interface{} `json:"details"` // Language-specific details
+	Details     interface{} `json:"details"`
+	Relations   []Relation  `json:"relations,omitempty"` // Dependencies/Relations
+}
+
+// Relation defines a directed link to another symbol.
+type Relation struct {
+	Target string `json:"target"` // Target symbol name or ID
+	Kind   string `json:"kind"`   // e.g., "calls", "implements", "embeds", "uses_type"
 }
 
 // LanguageExtractor defines the interface that each language parser must implement.

@@ -36,10 +36,19 @@ type Handler interface {
 
 // MyFunc is a function.
 func MyFunc(a int, b string) bool {
+	// Calling other function
+	MyFunction("test")
 	return true
 }
+
+// MyFunction is another function.
+func MyFunction(s string) {}
 
 // MyMethod is a method.
 func (u *User) MyMethod(msg string) {
 	fmt.Println(msg)
+	// Instantiating another struct
+	_ = Base{ID: 1}
+	// Calling a built-in (should be ignored)
+	_ = make([]int, 0)
 }
