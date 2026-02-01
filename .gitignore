@@ -34,3 +34,4 @@ coverage.out
 # Environment & config (may contain secrets)
 .env
 .env.*
+config.yaml

@@ -147,28 +147,8 @@ func NewGeminiSummarizer(ctx context.Context, apiKey string, modelName string) (
 	}, nil
 }
 
-func (s *GeminiSummarizer) SummarizeProject(ctx context.Context, allChunks []SearchChunk) (string, error) {
-	prompt := s.promptBuilder.BuildProjectPrompt(allChunks)
-	return s.generate(ctx, prompt)
-}
-
-func (s *GeminiSummarizer) SummarizePackage(ctx context.Context, pkgName string, pkgChunks []SearchChunk) (string, error) {
-	prompt := s.promptBuilder.BuildPackagePrompt(pkgName, pkgChunks)
-	return s.generate(ctx, prompt)
-}
-
-func (s *GeminiSummarizer) SummarizeUnit(ctx context.Context, unit SearchChunk, codeBody string, contextUnits []SearchChunk) (string, error) {
-	prompt := s.promptBuilder.BuildUnitPrompt(unit, codeBody, contextUnits)
-	return s.generate(ctx, prompt)
-}
-
-func (s *GeminiSummarizer) SummarizeFeatures(ctx context.Context, allChunks []SearchChunk) (string, error) {
-	prompt := s.promptBuilder.BuildFeatureListPrompt(allChunks)
-	return s.generate(ctx, prompt)
-}
-
-func (s *GeminiSummarizer) SummarizeGettingStarted(ctx context.Context, allChunks []SearchChunk) (string, error) {
-	prompt := s.promptBuilder.BuildGettingStartedPrompt(allChunks)
+func (s *GeminiSummarizer) SummarizeFullDoc(ctx context.Context, archChunks, featChunks, confChunks []SearchChunk) (string, error) {
+	prompt := s.promptBuilder.BuildFullDocPrompt(archChunks, featChunks, confChunks)
 	return s.generate(ctx, prompt)
 }
 

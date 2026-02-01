@@ -58,6 +58,18 @@ func (g *GoExtractor) calculateHash(content string) string {
 	return hex.EncodeToString(hasher.Sum(nil))
 }
 
+func (g *GoExtractor) sanitizeValue(name, value string) string {
+	lowerName := strings.ToLower(name)
+	sensitiveKeywords := []string{"key", "secret", "token", "password", "credential", "auth"}
+	
+	for _, kw := range sensitiveKeywords {
+		if strings.Contains(lowerName, kw) {
+			return "\"[REDACTED]\""
+		}
+	}
+	return value
+}
+
 func (g *GoExtractor) inferRole(unit *CodeUnit) string {
 	name := strings.ToLower(unit.Name)
 	
@@ -465,7 +477,8 @@ func (g *GoExtractor) extractConstUnit(node *sitter.Node, sourceCode []byte, fil
 		details.Type = typeNode.Content(sourceCode)
 	}
 	if valueNode := node.ChildByFieldName("value"); valueNode != nil {
-		details.Value = valueNode.Content(sourceCode)
+		rawVal := valueNode.Content(sourceCode)
+		details.Value = g.sanitizeValue(name, rawVal)
 	}
 	return &CodeUnit{
 		ID:          fmt.Sprintf("%s:%s:%d", filepath, name, node.StartPoint().Row+1),
@@ -497,7 +510,8 @@ func (g *GoExtractor) extractVarUnit(node *sitter.Node, sourceCode []byte, filep
 		details.Type = typeNode.Content(sourceCode)
 	}
 	if valueNode := node.ChildByFieldName("value"); valueNode != nil {
-		details.Value = valueNode.Content(sourceCode)
+		rawVal := valueNode.Content(sourceCode)
+		details.Value = g.sanitizeValue(name, rawVal)
 	}
 	return &CodeUnit{
 		ID:          fmt.Sprintf("%s:%s:%d", filepath, name, node.StartPoint().Row+1),

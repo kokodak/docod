@@ -17,6 +17,8 @@ type SearchChunk struct {
 	Package      string   `json:"package"`
 	Description  string   `json:"description"`
 	Signature    string   `json:"signature"`
+	Content      string   `json:"content"`      // Actual code body for LLM analysis
+	ContentHash  string   `json:"content_hash"` // Hash for change detection
 	Dependencies []string `json:"dependencies"`
 	UsedBy       []string `json:"used_by"`
 }
@@ -120,19 +122,12 @@ func (e *Engine) PrepareSearchChunks() []SearchChunk {
 	var chunks []SearchChunk
 	
 	// Group nodes by file path to create "File Chunks" or "Logical Component Chunks"
-	// This reduces the number of chunks and provides better local context for embedding.
 	files := make(map[string][]*graph.Node)
 
 	for _, node := range e.graph.Nodes {
-		// Filter unexported symbols
 		if !isExported(node.Unit.Name) {
 			continue
 		}
-		// Skip trivial types if needed
-		if node.Unit.UnitType == "variable" || node.Unit.UnitType == "constant" {
-			// Constants are better summarized at package level, but let's keep them if they are exported
-		}
-		
 		files[node.Unit.Filepath] = append(files[node.Unit.Filepath], node)
 	}
 
@@ -141,32 +136,44 @@ func (e *Engine) PrepareSearchChunks() []SearchChunk {
 			continue
 		}
 		
-		// Create a consolidated chunk for the file
-		// Use the first node's package as the chunk's package
 		pkgName := nodes[0].Unit.Package
 		fileName := filepath.Base(path)
 		
+		// Combined ContentHash for the file chunk
+		var combinedHashBuilder strings.Builder
+		for _, node := range nodes {
+			combinedHashBuilder.WriteString(node.Unit.ContentHash)
+		}
+		
 		chunk := SearchChunk{
-			ID:       path, // Use filepath as ID for the aggregated chunk
-			Name:     fileName,
-			UnitType: "file_module",
-			Package:  pkgName,
+			ID:          path,
+			Name:        fileName,
+			UnitType:    "file_module",
+			Package:     pkgName,
+			ContentHash: combinedHashBuilder.String(),
 		}
 
 		var descBuilder, sigBuilder strings.Builder
+		var contentBuilder strings.Builder // To aggregate full code content
+		
 		depsSet := make(map[string]bool)
 		usedBySet := make(map[string]bool)
 
 		fmt.Fprintf(&descBuilder, "Module `%s` in package `%s` containing:\n", fileName, pkgName)
 
 		for _, node := range nodes {
-			// Aggregate description and signature
+			// Aggregate description
 			fmt.Fprintf(&descBuilder, "- **%s** (%s): %s\n", node.Unit.Name, node.Unit.UnitType, node.Unit.Description)
 			
-			// For signature, we might want to be selective to avoid token overflow
-			// Only add signatures for Structs and Interfaces
+			// Aggregate Content (Actual Code)
+			// Only include actual code for Structs, Interfaces, and Functions
+			if node.Unit.UnitType == "struct" || node.Unit.UnitType == "interface" || node.Unit.UnitType == "function" || node.Unit.UnitType == "method" {
+				fmt.Fprintf(&contentBuilder, "// %s %s\n%s\n\n", node.Unit.UnitType, node.Unit.Name, node.Unit.Content)
+			}
+
+			// Aggregate Signature
 			if node.Unit.UnitType == "struct" || node.Unit.UnitType == "interface" {
-				fmt.Fprintf(&sigBuilder, "%s\n\n", getFileName(node.Unit.Filepath))
+				fmt.Fprintf(&sigBuilder, "%s\n\n", e.getConciseSignature(node.Unit))
 			}
 
 			// Aggregate dependencies
@@ -180,6 +187,14 @@ func (e *Engine) PrepareSearchChunks() []SearchChunk {
 
 		chunk.Description = descBuilder.String()
 		chunk.Signature = sigBuilder.String()
+		
+		// Truncate content to avoid excessive tokens (e.g., 3000 chars)
+		rawContent := contentBuilder.String()
+		if len(rawContent) > 3000 {
+			chunk.Content = rawContent[:3000] + "\n... (truncated)"
+		} else {
+			chunk.Content = rawContent
+		}
 		
 		for dep := range depsSet {
 			chunk.Dependencies = append(chunk.Dependencies, dep)
@@ -227,6 +242,8 @@ func (e *Engine) CreateChunk(id string, node *graph.Node) SearchChunk {
 		Package:     u.Package,
 		Description: u.Description,
 		Signature:   e.getConciseSignature(u),
+		Content:     u.Content,
+		ContentHash: u.ContentHash,
 	}
 
 	for _, d := range e.graph.GetDependencies(id) {
