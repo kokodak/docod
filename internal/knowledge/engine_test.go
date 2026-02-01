@@ -34,7 +34,7 @@ func TestEngine_IndexAll(t *testing.T) {
 	g.LinkRelations()
 
 	embedder := &mockEmbedder{dim: 768}
-	index := NewMemoryIndex()
+	index := NewMemoryIndex(g)
 	engine := NewEngine(g, embedder, index)
 
 	err := engine.IndexAll(context.Background())

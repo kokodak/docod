@@ -11,8 +11,9 @@ type CodeUnit struct {
 	StartLine   int         `json:"start_line"`
 	EndLine     int         `json:"end_line"`
 	Content     string      `json:"content"`
+	ContentHash string      `json:"content_hash"` // SHA256 hash of content for caching
 	UnitType    string      `json:"unit_type"`
-	Role        string      `json:"role"` // e.g., "Interface", "Service", "Model", "Utility"
+	Role        string      `json:"role"` 
 	Name        string      `json:"name"`
 	Description string      `json:"description"`
 	Details     interface{} `json:"details"`

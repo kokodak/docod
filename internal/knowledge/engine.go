@@ -2,6 +2,7 @@ package knowledge
 
 import (
 	"context"
+	"docod/internal/extractor"
 	"docod/internal/graph"
 	"fmt"
 	"path/filepath"
@@ -225,7 +226,7 @@ func (e *Engine) CreateChunk(id string, node *graph.Node) SearchChunk {
 		UnitType:    u.UnitType,
 		Package:     u.Package,
 		Description: u.Description,
-		Signature:   getFileName(u.Filepath),
+		Signature:   e.getConciseSignature(u),
 	}
 
 	for _, d := range e.graph.GetDependencies(id) {
@@ -237,6 +238,19 @@ func (e *Engine) CreateChunk(id string, node *graph.Node) SearchChunk {
 	}
 
 	return chunk
+}
+
+func (e *Engine) getConciseSignature(u *extractor.CodeUnit) string {
+	lines := strings.Split(u.Content, "\n")
+	if len(lines) > 0 {
+		for _, line := range lines {
+			trimmed := strings.TrimSpace(line)
+			if trimmed != "" && !strings.HasPrefix(trimmed, "//") && !strings.HasPrefix(trimmed, "/*") {
+				return trimmed
+			}
+		}
+	}
+	return u.Name
 }
 
 func getFileName(path string) string {

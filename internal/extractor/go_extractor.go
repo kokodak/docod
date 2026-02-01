@@ -1,6 +1,8 @@
 package extractor
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"strings"
 
@@ -41,12 +43,19 @@ func (g *GoExtractor) ExtractUnit(captureName string, node *sitter.Node, sourceC
 	if unit != nil {
 		unit.Package = packageName
 		unit.Language = "go"
-		unit.Role = g.inferRole(unit) // Infer role
+		unit.Role = g.inferRole(unit)
+		unit.ContentHash = g.calculateHash(unit.Content) // Calculate hash
 		if unit.Relations == nil {
 			unit.Relations = []Relation{}
 		}
 	}
 	return unit
+}
+
+func (g *GoExtractor) calculateHash(content string) string {
+	hasher := sha256.New()
+	hasher.Write([]byte(content))
+	return hex.EncodeToString(hasher.Sum(nil))
 }
 
 func (g *GoExtractor) inferRole(unit *CodeUnit) string {

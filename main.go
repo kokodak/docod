@@ -60,7 +60,7 @@ func main() {
 		log.Fatalf("Unsupported AI provider: %s", cfg.AI.Provider)
 	}
 
-	index := knowledge.NewMemoryIndex()
+	index := knowledge.NewMemoryIndex(g)
 	engine := knowledge.NewEngine(g, embedder, index)
 
 	// 6. Indexing

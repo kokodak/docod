@@ -2,12 +2,16 @@ package knowledge
 
 import (
 	"context"
+	"encoding/gob"
 	"errors"
 	"fmt"
 	"math"
+	"os"
 	"sort"
 	"strings"
 	"time"
+
+	"docod/internal/graph"
 
 	"google.golang.org/genai"
 )
@@ -181,21 +185,73 @@ func (s *GeminiSummarizer) generate(ctx context.Context, prompt string) (string,
 	return text, nil
 }
 
-// MemoryIndex is a simple in-memory vector storage.
+// MemoryIndex is a simple in-memory vector storage with hash-based caching and graph awareness.
 type MemoryIndex struct {
-	items []VectorItem
+	items  []VectorItem
+	hashes map[string]bool
+	graph  *graph.Graph // Reference to the dependency graph for hybrid search
 }
 
-func NewMemoryIndex() *MemoryIndex {
-	return &MemoryIndex{items: []VectorItem{}}
+func NewMemoryIndex(g *graph.Graph) *MemoryIndex {
+	return &MemoryIndex{
+		items:  []VectorItem{},
+		hashes: make(map[string]bool),
+		graph:  g,
+	}
 }
 
 func (m *MemoryIndex) Add(ctx context.Context, items []VectorItem) error {
-	m.items = append(m.items, items...)
+	for _, item := range items {
+		if !m.hashes[item.Chunk.ID] {
+			m.items = append(m.items, item)
+			m.hashes[item.Chunk.ID] = true
+		}
+	}
 	return nil
 }
 
+// Save persists the index to a file.
+func (m *MemoryIndex) Save(filepath string) error {
+	f, err := os.Create(filepath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	// Graph is reconstructed from source, so we only persist items
+	return gob.NewEncoder(f).Encode(m.items)
+}
+
+// Load restores the index from a file.
+func (m *MemoryIndex) Load(filepath string) error {
+	f, err := os.Open(filepath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	defer f.Close()
+
+	var loadedItems []VectorItem
+	if err := gob.NewDecoder(f).Decode(&loadedItems); err != nil {
+		return err
+	}
+
+	m.items = loadedItems
+	m.hashes = make(map[string]bool)
+	for _, item := range m.items {
+		m.hashes[item.Chunk.ID] = true
+	}
+	return nil
+}
+
+// Search implements Indexer and performs hybrid search (vector + graph proximity).
 func (m *MemoryIndex) Search(ctx context.Context, queryVector []float32, topK int) ([]VectorItem, error) {
+	return m.searchWithSource(ctx, queryVector, topK, "")
+}
+
+// searchWithSource performs hybrid search; sourceID boosts graph-neighbor scores.
+func (m *MemoryIndex) searchWithSource(_ context.Context, queryVector []float32, topK int, sourceID string) ([]VectorItem, error) {
 	if len(m.items) == 0 {
 		return nil, nil
 	}
@@ -206,9 +262,31 @@ func (m *MemoryIndex) Search(ctx context.Context, queryVector []float32, topK in
 	}
 	scores := make([]scoreItem, 0, len(m.items))
 
+	// Pre-calculate graph distances if sourceID is valid
+	distances := make(map[string]int)
+	if sourceID != "" && m.graph != nil {
+		distances = m.bfsDistances(sourceID, 2) // Limit depth to 2 hops
+	}
+
 	for _, item := range m.items {
-		score := cosineSimilarity(queryVector, item.Embedding)
-		scores = append(scores, scoreItem{item: item, score: score})
+		// 1. Vector Similarity (0.0 ~ 1.0)
+		vecScore := cosineSimilarity(queryVector, item.Embedding)
+		
+		// 2. Graph Proximity Boost
+		// Direct neighbor (dist=1): +0.2
+		// 2-hop neighbor (dist=2): +0.1
+		graphBoost := float32(0.0)
+		if dist, ok := distances[item.Chunk.ID]; ok {
+			switch dist {
+			case 1:
+				graphBoost = 0.2
+			case 2:
+				graphBoost = 0.1
+			}
+		}
+
+		finalScore := vecScore + graphBoost
+		scores = append(scores, scoreItem{item: item, score: finalScore})
 	}
 
 	sort.Slice(scores, func(i, j int) bool {
@@ -226,6 +304,52 @@ func (m *MemoryIndex) Search(ctx context.Context, queryVector []float32, topK in
 	}
 
 	return results, nil
+}
+
+// bfsDistances calculates shortest path distances from startNode up to maxDepth.
+func (m *MemoryIndex) bfsDistances(startID string, maxDepth int) map[string]int {
+	dists := make(map[string]int)
+	if m.graph == nil {
+		return dists
+	}
+
+	// BFS queue: [NodeID, Depth]
+	type queueItem struct {
+		id    string
+		depth int
+	}
+	queue := []queueItem{{id: startID, depth: 0}}
+	visited := map[string]bool{startID: true}
+
+	for len(queue) > 0 {
+		curr := queue[0]
+		queue = queue[1:]
+
+		if curr.depth > 0 {
+			dists[curr.id] = curr.depth
+		}
+
+		if curr.depth >= maxDepth {
+			continue
+		}
+
+		// Check Dependencies (Outgoing edges)
+		for _, dep := range m.graph.GetDependencies(curr.id) {
+			if !visited[dep.Unit.ID] {
+				visited[dep.Unit.ID] = true
+				queue = append(queue, queueItem{id: dep.Unit.ID, depth: curr.depth + 1})
+			}
+		}
+		
+		// Check Dependents (Incoming edges) - context flows both ways
+		for _, dep := range m.graph.GetDependents(curr.id) {
+			if !visited[dep.Unit.ID] {
+				visited[dep.Unit.ID] = true
+				queue = append(queue, queueItem{id: dep.Unit.ID, depth: curr.depth + 1})
+			}
+		}
+	}
+	return dists
 }
 
 func cosineSimilarity(a, b []float32) float32 {
