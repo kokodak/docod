@@ -2,6 +2,7 @@ package graph
 
 import (
 	"docod/internal/extractor"
+	"strings"
 )
 
 // Node represents a vertex in the dependency graph.
@@ -72,13 +73,22 @@ func (g *Graph) LinkRelations() {
 
 // resolveTarget finds potential target IDs for a given name.
 func (g *Graph) resolveTarget(targetName string, sourcePackage string) []string {
-	// 1. Try exact match (Package.Name or just Name)
+	// Normalize target name (e.g., "*Extractor" -> "Extractor", "[]Node" -> "Node")
+	cleanName := strings.TrimPrefix(targetName, "*")
+	cleanName = strings.TrimPrefix(cleanName, "[]")
+	
+	// 1. Try exact match with normalized name
+	if ids, ok := g.nameIndex[cleanName]; ok {
+		return ids
+	}
+	
+	// 2. Try match with original name (for qualified names like pkg.Type)
 	if ids, ok := g.nameIndex[targetName]; ok {
 		return ids
 	}
 	
-	// 2. Try package-local match
-	localKey := sourcePackage + "." + targetName
+	// 3. Try package-local match with normalized name
+	localKey := sourcePackage + "." + cleanName
 	if ids, ok := g.nameIndex[localKey]; ok {
 		return ids
 	}
