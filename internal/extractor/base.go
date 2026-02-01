@@ -12,10 +12,11 @@ type CodeUnit struct {
 	EndLine     int         `json:"end_line"`
 	Content     string      `json:"content"`
 	UnitType    string      `json:"unit_type"`
+	Role        string      `json:"role"` // e.g., "Interface", "Service", "Model", "Utility"
 	Name        string      `json:"name"`
 	Description string      `json:"description"`
 	Details     interface{} `json:"details"`
-	Relations   []Relation  `json:"relations,omitempty"` // Dependencies/Relations
+	Relations   []Relation  `json:"relations,omitempty"`
 }
 
 // Relation defines a directed link to another symbol.

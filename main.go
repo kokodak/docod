@@ -7,9 +7,9 @@ import (
 
 	"docod/internal/config"
 	"docod/internal/crawler"
-	"docod/internal/graph"
 	"docod/internal/extractor"
 	"docod/internal/generator"
+	"docod/internal/graph"
 	"docod/internal/knowledge"
 )
 
@@ -72,7 +72,11 @@ func main() {
 
 	// 7. Documentation Generation
 	fmt.Println("📝 Generating documentation...")
-	summarizer, err := knowledge.NewGeminiSummarizer(ctx, cfg.AI.APIKey, "gemini-1.5-flash") // Use Flash for efficiency
+	summaryModel := cfg.AI.SummaryModel
+	if summaryModel == "" {
+		summaryModel = "gemini-2.5-flash-lite"
+	}
+	summarizer, err := knowledge.NewGeminiSummarizer(ctx, cfg.AI.APIKey, summaryModel)
 	if err != nil {
 		log.Fatalf("Failed to create summarizer: %v", err)
 	}

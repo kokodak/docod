@@ -1,0 +1,8 @@
+project:
+  root: "."
+ai:
+  provider: "gemini"
+  model: "gemini-embedding-001"
+  dimension: 768
+  api_key: "" # Set via DOCOD_API_KEY env var
+  summary_model: "gemini-2.5-flash-lite"

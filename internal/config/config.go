@@ -12,10 +12,11 @@ type Config struct {
 		Root string `yaml:"root"`
 	} `yaml:"project"`
 	AI struct {
-		Provider string `yaml:"provider"` // e.g., "gemini", "openai"
-		Model    string `yaml:"model"`
-		APIKey   string `yaml:"api_key"`
-		Dimension int    `yaml:"dimension"`
+		Provider     string `yaml:"provider"`
+		Model        string `yaml:"model"`         // embedding model
+		SummaryModel string `yaml:"summary_model"` // LLM model for summarization
+		APIKey       string `yaml:"api_key"`
+		Dimension    int    `yaml:"dimension"`
 	} `yaml:"ai"`
 }
 
