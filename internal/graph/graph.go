@@ -42,7 +42,19 @@ func (g *Graph) AddUnit(unit *extractor.CodeUnit) {
 		return
 	}
 	g.Nodes[unit.ID] = &Node{Unit: unit}
-	
+	g.addToIndex(unit)
+}
+
+// RebuildIndices reconstructs the nameIndex from the current Nodes map.
+// This is essential after loading a graph from persistence (JSON).
+func (g *Graph) RebuildIndices() {
+	g.nameIndex = make(map[string][]string)
+	for _, node := range g.Nodes {
+		g.addToIndex(node.Unit)
+	}
+}
+
+func (g *Graph) addToIndex(unit *extractor.CodeUnit) {
 	// Simple index: Name -> ID
 	g.nameIndex[unit.Name] = append(g.nameIndex[unit.Name], unit.ID)
 	
@@ -91,6 +103,16 @@ func (g *Graph) resolveTarget(targetName string, sourcePackage string) []string 
 	localKey := sourcePackage + "." + cleanName
 	if ids, ok := g.nameIndex[localKey]; ok {
 		return ids
+	}
+
+	// 4. Heuristic: Try matching suffix (Method name) if it contains dots
+	// e.g. "g.AddUnit" -> match "AddUnit"
+	if strings.Contains(targetName, ".") {
+		parts := strings.Split(targetName, ".")
+		suffix := parts[len(parts)-1]
+		if ids, ok := g.nameIndex[suffix]; ok {
+			return ids
+		}
 	}
 	
 	return nil
