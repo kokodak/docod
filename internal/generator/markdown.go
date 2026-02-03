@@ -91,17 +91,8 @@ func (g *MarkdownGenerator) GenerateDocs(ctx context.Context, outputDir string) 
 		featList = fallbackChunks
 		confList = fallbackChunks
 	} else {
-		// Convert map back to slices for specific sections if we want to maintain separation,
-		// BUT PromptBuilder expects specific slices.
-		// Since we merged them into uniqueChunks to deduplicate globally, we might lose per-section specificity.
-		// However, for One-Shot prompting, passing the *union* of relevant chunks to all sections 
-		// (or specific subsets if we tracked them) is valid.
-		// To keep it simple and context-rich, let's just use the specific search results directly 
-		// but apply a global deduplication check if needed.
-		// Actually, passing specific results to specific prompt sections is better for steering the LLM.
-		// So let's NOT merge into uniqueChunks for passing to LLM, but use the specific search results.
-		// The uniqueChunks map was just to check if we found *anything*.
-		
+		// Use specific search results for each section to provide targeted context to the LLM.
+		// The uniqueChunks map is used solely to verify if any results were found.
 		archList = archChunks
 		featList = featChunks
 		confList = confChunks
@@ -118,8 +109,8 @@ func (g *MarkdownGenerator) GenerateDocs(ctx context.Context, outputDir string) 
 	}
 	fmt.Fprintf(f, "%s\n", fullDoc)
 
-	// 4. Append Deterministic Config Table (Accuracy Guarantee)
-	// We use the full set for this to ensure we don't miss any constants
+	// 4. Append Configuration Reference
+	// Use the full set of chunks to ensure all constants/variables are captured.
 	g.generateConfigTable(f, g.engine.PrepareSearchChunks())
 
 	return nil

@@ -24,7 +24,7 @@ func (m *MermaidGenerator) GeneratePackageDiagram(pkgName string, chunks []knowl
 		if c.UnitType == "interface" {
 			sb.WriteString("        <<interface>>\n")
 		}
-		// Add simple annotation for key methods/fields? (Optional, maybe too cluttered)
+		// Method/Field annotations are omitted for clarity.
 		sb.WriteString("    }\n")
 	}
 
