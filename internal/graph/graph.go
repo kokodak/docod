@@ -21,7 +21,7 @@ type Edge struct {
 type Graph struct {
 	Nodes map[string]*Node
 	Edges []Edge
-	
+
 	// Index for faster lookup: Name -> []ID
 	// Useful for resolving name-based relations to actual IDs.
 	nameIndex map[string][]string
@@ -57,7 +57,7 @@ func (g *Graph) RebuildIndices() {
 func (g *Graph) addToIndex(unit *extractor.CodeUnit) {
 	// Simple index: Name -> ID
 	g.nameIndex[unit.Name] = append(g.nameIndex[unit.Name], unit.ID)
-	
+
 	// Qualified index: Package.Name -> ID
 	if unit.Package != "" {
 		key := unit.Package + "." + unit.Name
@@ -68,7 +68,7 @@ func (g *Graph) addToIndex(unit *extractor.CodeUnit) {
 // LinkRelations attempts to resolve all name-based relations to actual node IDs.
 func (g *Graph) LinkRelations() {
 	g.Edges = []Edge{} // Reset edges
-	
+
 	for sourceID, node := range g.Nodes {
 		for _, rel := range node.Unit.Relations {
 			targets := g.resolveTarget(rel.Target, node.Unit.Package)
@@ -88,17 +88,17 @@ func (g *Graph) resolveTarget(targetName string, sourcePackage string) []string 
 	// Normalize target name (e.g., "*Extractor" -> "Extractor", "[]Node" -> "Node")
 	cleanName := strings.TrimPrefix(targetName, "*")
 	cleanName = strings.TrimPrefix(cleanName, "[]")
-	
+
 	// 1. Try exact match with normalized name
 	if ids, ok := g.nameIndex[cleanName]; ok {
 		return ids
 	}
-	
+
 	// 2. Try match with original name (for qualified names like pkg.Type)
 	if ids, ok := g.nameIndex[targetName]; ok {
 		return ids
 	}
-	
+
 	// 3. Try package-local match with normalized name
 	localKey := sourcePackage + "." + cleanName
 	if ids, ok := g.nameIndex[localKey]; ok {
@@ -114,7 +114,7 @@ func (g *Graph) resolveTarget(targetName string, sourcePackage string) []string 
 			return ids
 		}
 	}
-	
+
 	return nil
 }
 

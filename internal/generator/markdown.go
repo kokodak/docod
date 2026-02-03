@@ -44,48 +44,56 @@ func (g *MarkdownGenerator) GenerateDocs(ctx context.Context, outputDir string) 
 
 	// 2. Smart Context Selection (RAG)
 	fmt.Println("🔍 Selecting relevant context using Vector Search...")
-	
+
 	uniqueChunks := make(map[string]knowledge.SearchChunk) // ID -> Chunk (Deduplication)
-	
+
 	// Query 1: Architecture & Core Concepts
 	archChunks, _ := g.engine.SearchByText(ctx, "project architecture purpose design philosophy system overview high level structure", 20, "")
-	for _, c := range archChunks { uniqueChunks[c.ID] = c }
+	for _, c := range archChunks {
+		uniqueChunks[c.ID] = c
+	}
 
 	// Query 2: Key Features & Business Logic
 	featChunks, _ := g.engine.SearchByText(ctx, "core business logic key features domain services main functionality", 25, "")
-	for _, c := range featChunks { uniqueChunks[c.ID] = c }
+	for _, c := range featChunks {
+		uniqueChunks[c.ID] = c
+	}
 
 	// Query 3: Configuration & Entry Points
 	confChunks, _ := g.engine.SearchByText(ctx, "configuration setup main entry point environment variables build instructions", 10, "")
-	for _, c := range confChunks { uniqueChunks[c.ID] = c }
+	for _, c := range confChunks {
+		uniqueChunks[c.ID] = c
+	}
 
 	// Fallback mechanism: If search returns nothing (e.g. embedding failed or small project)
 	var archList, featList, confList []knowledge.SearchChunk
-	
+
 	if len(uniqueChunks) == 0 {
 		fmt.Println("⚠️  Search yielded no results. Using intelligent fallback selection.")
 		allChunks := g.engine.PrepareSearchChunks()
-		
+
 		// Intelligent filtering for fallback
 		var fallbackChunks []knowledge.SearchChunk
 		for _, c := range allChunks {
 			name := strings.ToLower(c.Name)
-			if strings.Contains(name, "main") || 
-			   strings.Contains(name, "config") || 
-			   strings.Contains(name, "service") || 
-			   strings.Contains(name, "handler") || 
-			   strings.Contains(name, "model") ||
-			   strings.Contains(name, "core") {
+			if strings.Contains(name, "main") ||
+				strings.Contains(name, "config") ||
+				strings.Contains(name, "service") ||
+				strings.Contains(name, "handler") ||
+				strings.Contains(name, "model") ||
+				strings.Contains(name, "core") {
 				fallbackChunks = append(fallbackChunks, c)
 			}
 		}
 		// Safety net: if filtering leaves too few, take top 20
 		if len(fallbackChunks) < 5 && len(allChunks) > 0 {
 			limit := 20
-			if len(allChunks) < 20 { limit = len(allChunks) }
+			if len(allChunks) < 20 {
+				limit = len(allChunks)
+			}
 			fallbackChunks = allChunks[:limit]
 		}
-		
+
 		// Distribute same fallback chunks to all contexts to ensure coverage
 		archList = fallbackChunks
 		featList = fallbackChunks
@@ -96,13 +104,13 @@ func (g *MarkdownGenerator) GenerateDocs(ctx context.Context, outputDir string) 
 		archList = archChunks
 		featList = featChunks
 		confList = confChunks
-		
+
 		fmt.Printf("📉 Context Optimization: Arch(%d), Feat(%d), Conf(%d)\n", len(archList), len(featList), len(confList))
 	}
 
 	// 3. One-Shot Full Documentation Generation
 	fmt.Println("🌟 Generating Full Documentation (One-Shot)...")
-	
+
 	fullDoc, err := g.summarizer.SummarizeFullDoc(ctx, archList, featList, confList)
 	if err != nil {
 		return fmt.Errorf("failed to generate documentation: %w", err)

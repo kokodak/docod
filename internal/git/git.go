@@ -46,7 +46,7 @@ func parseDiff(output []byte) ([]ChangedFile, error) {
 				// We want the b/ path (new version)
 				bPath := parts[3]
 				path := strings.TrimPrefix(bPath, "b/")
-				
+
 				// Save previous file if exists
 				if currentFile != nil {
 					changes = append(changes, *currentFile)
@@ -73,7 +73,7 @@ func parseDiff(output []byte) ([]ChangedFile, error) {
 				// For now, let's treat it as "something changed around here".
 				// But strictly, if count is 0, no lines exist in the new file at this pos.
 				// However, usually we care about added/modified lines.
-				
+
 				for i := 0; i < count; i++ {
 					currentFile.ChangedLines = append(currentFile.ChangedLines, startLine+i)
 				}

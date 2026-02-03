@@ -120,7 +120,7 @@ func (e *Engine) SearchByText(ctx context.Context, query string, topK int, exclu
 // PrepareSearchChunks converts nodes into optimized chunks, aggregating by file context.
 func (e *Engine) PrepareSearchChunks() []SearchChunk {
 	var chunks []SearchChunk
-	
+
 	// Group nodes by file path to create "File Chunks" or "Logical Component Chunks"
 	files := make(map[string][]*graph.Node)
 
@@ -135,16 +135,16 @@ func (e *Engine) PrepareSearchChunks() []SearchChunk {
 		if len(nodes) == 0 {
 			continue
 		}
-		
+
 		pkgName := nodes[0].Unit.Package
 		fileName := filepath.Base(path)
-		
+
 		// Combined ContentHash for the file chunk
 		var combinedHashBuilder strings.Builder
 		for _, node := range nodes {
 			combinedHashBuilder.WriteString(node.Unit.ContentHash)
 		}
-		
+
 		chunk := SearchChunk{
 			ID:          path,
 			Name:        fileName,
@@ -155,7 +155,7 @@ func (e *Engine) PrepareSearchChunks() []SearchChunk {
 
 		var descBuilder, sigBuilder strings.Builder
 		var contentBuilder strings.Builder // To aggregate full code content
-		
+
 		depsSet := make(map[string]bool)
 		usedBySet := make(map[string]bool)
 
@@ -164,7 +164,7 @@ func (e *Engine) PrepareSearchChunks() []SearchChunk {
 		for _, node := range nodes {
 			// Aggregate description
 			fmt.Fprintf(&descBuilder, "- **%s** (%s): %s\n", node.Unit.Name, node.Unit.UnitType, node.Unit.Description)
-			
+
 			// Aggregate Content (Actual Code)
 			// Only include actual code for Structs, Interfaces, and Functions
 			if node.Unit.UnitType == "struct" || node.Unit.UnitType == "interface" || node.Unit.UnitType == "function" || node.Unit.UnitType == "method" {
@@ -187,7 +187,7 @@ func (e *Engine) PrepareSearchChunks() []SearchChunk {
 
 		chunk.Description = descBuilder.String()
 		chunk.Signature = sigBuilder.String()
-		
+
 		// Truncate content to avoid excessive tokens (e.g., 3000 chars)
 		rawContent := contentBuilder.String()
 		if len(rawContent) > 3000 {
@@ -195,7 +195,7 @@ func (e *Engine) PrepareSearchChunks() []SearchChunk {
 		} else {
 			chunk.Content = rawContent
 		}
-		
+
 		for dep := range depsSet {
 			chunk.Dependencies = append(chunk.Dependencies, dep)
 		}

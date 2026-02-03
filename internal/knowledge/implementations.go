@@ -251,7 +251,7 @@ func (m *MemoryIndex) searchWithSource(_ context.Context, queryVector []float32,
 	for _, item := range m.items {
 		// 1. Vector Similarity (0.0 ~ 1.0)
 		vecScore := cosineSimilarity(queryVector, item.Embedding)
-		
+
 		// 2. Graph Proximity Boost
 		// Direct neighbor (dist=1): +0.2
 		// 2-hop neighbor (dist=2): +0.1
@@ -320,7 +320,7 @@ func (m *MemoryIndex) bfsDistances(startID string, maxDepth int) map[string]int 
 				queue = append(queue, queueItem{id: dep.Unit.ID, depth: curr.depth + 1})
 			}
 		}
-		
+
 		// Check Dependents (Incoming edges) - context flows both ways
 		for _, dep := range m.graph.GetDependents(curr.id) {
 			if !visited[dep.Unit.ID] {

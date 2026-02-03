@@ -44,7 +44,7 @@ func TestGraph_LinkRelations(t *testing.T) {
 	t.Run("Internal package resolution", func(t *testing.T) {
 		deps := g.GetDependencies(unitA.ID)
 		assert.NotEmpty(t, deps)
-		
+
 		var foundB bool
 		for _, d := range deps {
 			if d.Unit.Name == "FuncB" {

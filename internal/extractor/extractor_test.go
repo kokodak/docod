@@ -97,7 +97,7 @@ func TestExtractor_ExtractFromFile(t *testing.T) {
 		unit, ok := unitsByName["Base"]
 		require.True(t, ok, "Base struct should be found")
 		assert.Equal(t, "struct", unit.UnitType)
-		
+
 		details, ok := unit.Details.(GoTypeDetails)
 		require.True(t, ok)
 		assert.Len(t, details.Fields, 1)
@@ -109,16 +109,16 @@ func TestExtractor_ExtractFromFile(t *testing.T) {
 		unit, ok := unitsByName["User"]
 		require.True(t, ok, "User struct should be found")
 		assert.Equal(t, "struct", unit.UnitType)
-		
+
 		details, ok := unit.Details.(GoTypeDetails)
 		require.True(t, ok)
 		// Base (embedded), Name, Nickname, Age
 		assert.Len(t, details.Fields, 4)
-		
+
 		// Check embedded field
 		assert.Equal(t, "Base", details.Fields[0].Name)
 		assert.Equal(t, "Base", details.Fields[0].Type)
-		
+
 		// Check field with multiple identifiers
 		assert.Equal(t, "Name", details.Fields[1].Name)
 		assert.Equal(t, "Nickname", details.Fields[2].Name)
@@ -130,12 +130,12 @@ func TestExtractor_ExtractFromFile(t *testing.T) {
 		unit, ok := unitsByName["Handler"]
 		require.True(t, ok, "Handler interface should be found")
 		assert.Equal(t, "interface", unit.UnitType)
-		
+
 		details, ok := unit.Details.(GoInterfaceDetails)
 		require.True(t, ok)
 		// fmt.Stringer (embedded), Handle, Close
 		assert.Len(t, details.Methods, 3)
-		
+
 		var foundHandle bool
 		for _, m := range details.Methods {
 			if strings.HasPrefix(m.Signature, "Handle") {
@@ -153,7 +153,7 @@ func TestExtractor_ExtractFromFile(t *testing.T) {
 		unit, ok := unitsByName["MyFunc"]
 		require.True(t, ok, "MyFunc should be found")
 		assert.Equal(t, "function", unit.UnitType)
-		
+
 		details, ok := unit.Details.(GoFunctionDetails)
 		require.True(t, ok)
 		assert.Len(t, details.Parameters, 2)
@@ -165,7 +165,7 @@ func TestExtractor_ExtractFromFile(t *testing.T) {
 		unit, ok := unitsByName["MyMethod"]
 		require.True(t, ok, "MyMethod should be found")
 		assert.Equal(t, "method", unit.UnitType)
-		
+
 		details, ok := unit.Details.(GoFunctionDetails)
 		require.True(t, ok)
 		assert.NotEmpty(t, details.Receiver)

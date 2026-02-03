@@ -74,14 +74,14 @@ func TestEngine_CreateChunk(t *testing.T) {
 	g.LinkRelations()
 
 	engine := NewEngine(g, nil, nil)
-	
+
 	t.Run("Structured chunk for function", func(t *testing.T) {
 		chunk := engine.CreateChunk(unitA.ID, g.Nodes[unitA.ID])
-		
+
 		assert.Equal(t, "logic", chunk.Package)
 		assert.Equal(t, "ProcessOrder", chunk.Name)
 		assert.Contains(t, chunk.Dependencies, "Order")
-		
+
 		text := chunk.ToEmbeddableText()
 		assert.Contains(t, text, "Symbol: ProcessOrder (function)")
 		assert.Contains(t, text, "Depends on: Order")
@@ -89,7 +89,7 @@ func TestEngine_CreateChunk(t *testing.T) {
 
 	t.Run("Structured chunk for struct", func(t *testing.T) {
 		chunk := engine.CreateChunk(unitB.ID, g.Nodes[unitB.ID])
-		
+
 		assert.Equal(t, "struct", chunk.UnitType)
 		assert.Contains(t, chunk.UsedBy, "ProcessOrder")
 	})

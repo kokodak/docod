@@ -15,7 +15,7 @@ func (pb *PromptBuilder) BuildFullDocPrompt(archChunks, featChunks, confChunks [
 	sb.WriteString("Role: Technical Writer & Software Architect. Task: Write the complete Official Technical Documentation.\n")
 	sb.WriteString(securityInstruction)
 	sb.WriteString("\nGenerate the document following the structure below. Use the provided context for each section.\n")
-	
+
 	// --- Section 1: Overview ---
 	sb.WriteString("\n\n==================================================================\n")
 	sb.WriteString("### SECTION 1: OVERVIEW & ARCHITECTURE\n")
@@ -57,7 +57,7 @@ func (pb *PromptBuilder) BuildFullDocPrompt(archChunks, featChunks, confChunks [
 	sb.WriteString("Write the '# Development' section.\n")
 	sb.WriteString("## Quick Start\n- Prerequisites and Run commands.\n\n")
 	sb.WriteString("## Configuration\n- Explain environment variables or config files found in context.\n")
-	
+
 	return sb.String()
 }
 
@@ -70,5 +70,3 @@ func (pb *PromptBuilder) BuildUnitPrompt(unit SearchChunk, codeBody string, cont
 	// Deprecated
 	return ""
 }
-
-

@@ -61,7 +61,7 @@ func (g *GoExtractor) calculateHash(content string) string {
 func (g *GoExtractor) sanitizeValue(name, value string) string {
 	lowerName := strings.ToLower(name)
 	sensitiveKeywords := []string{"key", "secret", "token", "password", "credential", "auth"}
-	
+
 	for _, kw := range sensitiveKeywords {
 		if strings.Contains(lowerName, kw) {
 			return "\"[REDACTED]\""
@@ -72,21 +72,37 @@ func (g *GoExtractor) sanitizeValue(name, value string) string {
 
 func (g *GoExtractor) inferRole(unit *CodeUnit) string {
 	name := strings.ToLower(unit.Name)
-	
+
 	switch unit.UnitType {
 	case "interface":
 		return "Interface"
 	case "struct":
-		if strings.HasSuffix(name, "service") { return "Service" }
-		if strings.HasSuffix(name, "repository") || strings.HasSuffix(name, "repo") || strings.HasSuffix(name, "store") { return "Data Access" }
-		if strings.HasSuffix(name, "handler") || strings.HasSuffix(name, "controller") { return "API Handler" }
-		if strings.HasSuffix(name, "config") || strings.HasSuffix(name, "options") { return "Configuration" }
-		if strings.HasSuffix(name, "request") || strings.HasSuffix(name, "response") { return "DTO" }
+		if strings.HasSuffix(name, "service") {
+			return "Service"
+		}
+		if strings.HasSuffix(name, "repository") || strings.HasSuffix(name, "repo") || strings.HasSuffix(name, "store") {
+			return "Data Access"
+		}
+		if strings.HasSuffix(name, "handler") || strings.HasSuffix(name, "controller") {
+			return "API Handler"
+		}
+		if strings.HasSuffix(name, "config") || strings.HasSuffix(name, "options") {
+			return "Configuration"
+		}
+		if strings.HasSuffix(name, "request") || strings.HasSuffix(name, "response") {
+			return "DTO"
+		}
 		return "Data Model"
 	case "function", "method":
-		if strings.HasPrefix(name, "new") { return "Constructor" }
-		if strings.HasPrefix(name, "get") || strings.HasPrefix(name, "set") { return "Accessor" }
-		if strings.Contains(name, "test") { return "Test" }
+		if strings.HasPrefix(name, "new") {
+			return "Constructor"
+		}
+		if strings.HasPrefix(name, "get") || strings.HasPrefix(name, "set") {
+			return "Accessor"
+		}
+		if strings.Contains(name, "test") {
+			return "Test"
+		}
 		return "Logic"
 	case "constant":
 		return "Constant"

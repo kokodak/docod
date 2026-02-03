@@ -241,7 +241,7 @@ func (s *SQLiteStore) SaveEmbeddings(ctx context.Context, items []knowledge.Vect
 func (s *SQLiteStore) SearchSimilar(ctx context.Context, queryVector []float32, topK int) ([]knowledge.SearchChunk, error) {
 	// Naive In-Memory Cosine Similarity
 	// For small to medium codebases (up to 10k chunks), this is fast enough (ms range).
-	
+
 	rows, err := s.db.QueryContext(ctx, "SELECT content, embedding FROM chunks")
 	if err != nil {
 		return nil, err

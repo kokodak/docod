@@ -45,10 +45,10 @@ func TestCrawler_ScanSelf(t *testing.T) {
 			}
 		}
 		require.NotNil(t, foundCrawlerNode)
-		
+
 		deps := g.GetDependencies(foundCrawlerNode.Unit.ID)
 		assert.NotEmpty(t, deps)
-		
+
 		var foundExtractorDep bool
 		for _, d := range deps {
 			if d.Unit.Name == "Extractor" {

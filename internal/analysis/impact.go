@@ -27,7 +27,7 @@ func (a *Analyzer) AnalyzeImpact(changes []git.ChangedFile) (*ImpactReport, erro
 		DirectlyAffected:   []*graph.Node{},
 		IndirectlyAffected: []*graph.Node{},
 	}
-	
+
 	seenDirect := make(map[string]bool)
 	seenIndirect := make(map[string]bool)
 

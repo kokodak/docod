@@ -44,7 +44,7 @@ func init() {
 func initStore() (storage.Store, error) {
 	// Ensure config is loaded (even if defaults)
 	_, _ = config.LoadConfig("config.yaml")
-	
+
 	return storage.NewSQLiteStore(dbPath)
 }
 
@@ -57,14 +57,14 @@ var scanCmd = &cobra.Command{
 		if len(args) > 0 {
 			path = args[0]
 		}
-		
+
 		absPath, err := os.Getwd()
 		if err != nil {
 			log.Fatalf("Failed to get current directory: %v", err)
 		}
 		if path != "." {
 			// Basic path handling, in real app use filepath.Abs
-			absPath = path 
+			absPath = path
 		}
 
 		fmt.Printf("📂 Scanning directory: %s\n", absPath)
@@ -101,7 +101,7 @@ var scanCmd = &cobra.Command{
 		if err := store.SaveGraph(ctx, g); err != nil {
 			log.Fatalf("Failed to save graph: %v", err)
 		}
-		
+
 		fmt.Printf("🎉 Scan complete! Database: %s\n", dbPath)
 	},
 }
@@ -135,14 +135,14 @@ var diffCmd = &cobra.Command{
 		// 3. Simple Impact Analysis (Demo)
 		for _, change := range changes {
 			fmt.Printf("\nAnalyzing impact for: %s\n", change.Path)
-			
+
 			// Find nodes in this file
 			nodes, err := store.FindNodesByFile(ctx, change.Path)
 			if err != nil {
 				log.Printf("  Error querying nodes: %v", err)
 				continue
 			}
-			
+
 			if len(nodes) == 0 {
 				fmt.Println("  No knowledge nodes found for this file.")
 				continue

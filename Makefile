@@ -2,7 +2,7 @@
 BIN_DIR := bin
 LINTER := github.com/golangci/golangci-lint/cmd/golangci-lint@v1.55.2
 
-.PHONY: all build clean setup lint test
+.PHONY: all build clean setup lint fmt test
 
 all: build
 
@@ -18,6 +18,12 @@ build:
 	mkdir -p $(BIN_DIR)
 	go build -o $(BIN_DIR)/docod cmd/docod/main.go
 	@echo "✅ Build complete. Binary in $(BIN_DIR)/docod"
+
+# Format Code
+fmt:
+	@echo "✨ Formatting code..."
+	go fmt ./...
+	@echo "✅ Code formatted."
 
 # Run Lint
 lint:
