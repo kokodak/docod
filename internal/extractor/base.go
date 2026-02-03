@@ -13,7 +13,7 @@ type CodeUnit struct {
 	Content     string      `json:"content"`
 	ContentHash string      `json:"content_hash"` // SHA256 hash of content for caching
 	UnitType    string      `json:"unit_type"`
-	Role        string      `json:"role"` 
+	Role        string      `json:"role"`
 	Name        string      `json:"name"`
 	Description string      `json:"description"`
 	Details     interface{} `json:"details"`
