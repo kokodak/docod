@@ -27,8 +27,10 @@ func (m *mockEmbedder) Dimension() int { return m.dim }
 func TestEngine_IndexAll(t *testing.T) {
 	g := graph.NewGraph()
 	unit := &extractor.CodeUnit{
-		ID:   "test",
-		Name: "TestFunc",
+		ID:       "test",
+		Name:     "TestFunc",
+		UnitType: "function",
+		Filepath: "pkg/test_file.go",
 	}
 	g.AddUnit(unit)
 	g.LinkRelations()
@@ -41,7 +43,9 @@ func TestEngine_IndexAll(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Len(t, index.items, 1)
-	assert.Equal(t, "TestFunc", index.items[0].Chunk.Name)
+	// PrepareSearchChunks aggregates by file, so the chunk name is the filename
+	assert.Equal(t, "test_file.go", index.items[0].Chunk.Name)
+	assert.Contains(t, index.items[0].Chunk.Description, "TestFunc")
 	assert.Len(t, index.items[0].Embedding, 768)
 }
 

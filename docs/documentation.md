@@ -251,6 +251,58 @@ classDiagram
     fmt.Println(fullDocSummary)
     ```
 
+## Updating Documentation Automatically
+
+This feature provides an automated mechanism to update documentation based on code changes. It identifies modified or new code files, analyzes their impact on existing documentation, and either updates relevant sections or generates new ones.
+
+### Concept
+
+The automatic documentation updater works by:
+
+1.  **Parsing and Indexing**: It first parses the existing Markdown documentation into sections and then indexes these sections as searchable `doc_section` type `VectorItem`s.
+2.  **Analyzing Code Changes**: When code files are changed or added, the system generates `SearchChunk`s for these files. These chunks are then embedded into vectors.
+3.  **Semantic Search**: The embedded code chunks are used to perform semantic searches against the indexed documentation sections. This identifies which existing documentation sections are semantically related to the code changes.
+4.  **Generating or Updating Content**:
+    *   If relevant existing documentation sections are found, the system prompts an LLM to update them with the new information from the code.
+    *   If new code files are introduced without clear corresponding documentation, the system can generate entirely new documentation sections.
+5.  **Applying Changes**: The generated or updated documentation content is then applied as a "patch" to the original document.
+
+### Usage
+
+To utilize the automatic documentation updater, you typically integrate it into your development workflow. This might involve:
+
+*   **Triggering the Update**: The update process can be triggered manually or automatically (e.g., via a pre-commit hook or a CI/CD pipeline).
+*   **Specifying the Documentation File**: You need to provide the path to the main documentation file (e.g., `README.md`).
+*   **Providing Changed Files**: A list of changed, added, or deleted file paths needs to be supplied.
+
+The updater will then:
+
+1.  Read the existing documentation.
+2.  Parse it into manageable sections.
+3.  Index these documentation sections.
+4.  Process the provided changed files, creating embeddings for them.
+5.  Search for relevant documentation sections using these embeddings.
+6.  Generate or update documentation content based on the search results.
+7.  Output the updated documentation content.
+
+### Example
+
+Imagine you have a `README.md` file and you've just added a new feature in `pkg/new_feature.go`. The following conceptual steps would be involved:
+
+1.  **Initial State**: Your `README.md` exists, and `pkg/new_feature.go` is a new file.
+2.  **Code Change**: You commit `pkg/new_feature.go`. A Git hook or CI process detects this change.
+3.  **Update Trigger**: The `UpdateDocs` function is called with the path to `README.md` and `["pkg/new_feature.go"]` as changed files.
+4.  **Processing `pkg/new_feature.go`**:
+    *   The file is converted into a `SearchChunk`.
+    *   This chunk is embedded into a vector.
+    *   A semantic search is performed against the indexed sections of `README.md`.
+5.  **Outcome**:
+    *   **Scenario A (New Section Needed)**: If no existing section in `README.md` semantically matches the new feature, the system might use a prompt like `BuildNewSectionPrompt` to generate a new markdown section for `pkg/new_feature.go`.
+    *   **Scenario B (Existing Section Update)**: If an existing section (e.g., "Features") is found to be related, the system might use a prompt like `UpdateDocSection` to update that section with details from `pkg/new_feature.go`.
+6.  **Output**: The function returns the complete, updated `README.md` content, which can then be committed.
+
+This automated process ensures that your documentation stays synchronized with your codebase, reducing manual effort and the risk of outdated information.
+
 ## SECTION 3: DEVELOPMENT GUIDE
 
 ### Quick Start
@@ -306,3 +358,94 @@ Configuration for the system can be managed through environment variables. This 
         go run main.go <your_project_path>
         ```
     *   **Note**: As of the provided context, this variable might not be actively used but is included for potential future expansion. The `LoadConfig` function in `config.go` is the entry point for configuration loading.
+
+## In-Memory Index with Graph Awareness
+
+This module provides an in-memory implementation of a vector index (`MemoryIndex`) designed for efficient storage and retrieval of code embeddings. It integrates with a graph structure to enable hybrid search, combining vector similarity with graph-based proximity.
+
+### Concept
+
+The `MemoryIndex` stores `VectorItem`s, which consist of a `SearchChunk` (representing a piece of code) and its corresponding embedding (a `[]float32` vector). It uses a hash-based cache (`hashes`) for quick lookups of existing chunks by their IDs and maintains a list of all stored items (`items`).
+
+The key differentiator of `MemoryIndex` is its awareness of a graph structure (presumably a code dependency graph). While the provided code snippet for `MemoryIndex` itself doesn't explicitly show graph traversal, its usage within the `knowledge.Engine` suggests that search operations can leverage graph relationships for more contextually relevant results.
+
+### Usage
+
+The `MemoryIndex` can be initialized using `NewMemoryIndex`, which requires a `graph.Graph` object.
+
+-   **Loading and Saving**: The index supports persistence to and from files using the `Save` and `Load` methods, respectively. This allows the index to be reconstituted across application runs.
+-   **Adding Items**: New code chunks and their embeddings can be added using the `Add` method.
+-   **Deleting Items**: Items can be removed from the index by their IDs using the `Delete` method.
+-   **Searching**: The `Search` method performs a hybrid search, leveraging both vector similarity and graph proximity to find the most relevant `VectorItem`s for a given query vector.
+
+### Example
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"your_module_path/graph" // Assuming graph package is available
+	"your_module_path/knowledge" // Assuming knowledge package is available
+)
+
+func main() {
+	// Assume graph and embedder are initialized elsewhere
+	g := graph.NewGraph() // Initialize your graph
+	// Populate graph with nodes and relations as needed...
+
+	// Initialize Gemini embedder. Replace "YOUR_API_KEY" with your actual API key.
+	embedder, err := knowledge.NewGeminiEmbedder(context.Background(), "YOUR_API_KEY", "models/text-embedding-004", 768)
+	if err != nil {
+		fmt.Printf("Error creating embedder: %v\n", err)
+		return
+	}
+
+	// Initialize the MemoryIndex with the graph
+	index := knowledge.NewMemoryIndex(g)
+
+	// Example: Creating and adding a VectorItem
+	chunk := knowledge.SearchChunk{
+		ID:          "unique-chunk-id-123",
+		Name:        "MyFunction",
+		Description: "A sample function.",
+		Content:     "func MyFunction() {}",
+		UnitType:    "function",
+		Package:     "main",
+	}
+	// Note: In a real scenario, the embedding would be generated by the embedder.
+	// For demonstration, a placeholder is used here.
+	embedding := make([]float32, embedder.Dimension()) // Get dimension from embedder
+	// Example: embedding would be generated by embedder.Embed(ctx, chunk.Content)
+
+	vecItem := knowledge.VectorItem{
+		Chunk:     chunk,
+		Embedding: embedding,
+	}
+
+	err = index.Add(context.Background(), []knowledge.VectorItem{vecItem})
+	if err != nil {
+		fmt.Printf("Error adding item to index: %v\n", err)
+		return
+	}
+	fmt.Println("Item added to index.")
+
+	// Example: Searching the index
+	queryVector := make([]float32, embedder.Dimension()) // Query vector should match embedding dimension
+	// Example: queryVector would be generated by embedder.Embed(ctx, "query string")
+	topK := 5
+	results, err := index.Search(context.Background(), queryVector, topK)
+	if err != nil {
+		fmt.Printf("Error searching index: %v\n", err)
+		return
+	}
+
+	fmt.Printf("Found %d search results:\n", len(results))
+	for i, res := range results {
+		fmt.Printf("%d. Chunk ID: %s, Name: %s\n", i+1, res.Chunk.ID, res.Chunk.Name)
+	}
+}
+```
+

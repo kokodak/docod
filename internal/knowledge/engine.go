@@ -56,6 +56,14 @@ func NewEngine(g *graph.Graph, em Embedder, idx Indexer) *Engine {
 	}
 }
 
+func (e *Engine) Embedder() Embedder {
+	return e.embedder
+}
+
+func (e *Engine) Indexer() Indexer {
+	return e.index
+}
+
 // IndexAll processes all graph nodes, converts them to embeddings, and adds them to the index.
 func (e *Engine) IndexAll(ctx context.Context) error {
 	if e.embedder == nil || e.index == nil {
@@ -63,6 +71,37 @@ func (e *Engine) IndexAll(ctx context.Context) error {
 	}
 
 	chunks := e.PrepareSearchChunks()
+	return e.embedChunks(ctx, chunks)
+}
+
+// IndexIncremental updates embeddings only for the specified files and removes deleted ones.
+func (e *Engine) IndexIncremental(ctx context.Context, updatedFiles []string, deletedFiles []string) error {
+	if e.embedder == nil || e.index == nil {
+		return fmt.Errorf("embedder or indexer not initialized")
+	}
+
+	// 1. Remove chunks for deleted files
+	// Note: Chunk ID currently equals the filepath for file-level chunks
+	if len(deletedFiles) > 0 {
+		if err := e.index.Delete(ctx, deletedFiles); err != nil {
+			return fmt.Errorf("failed to delete stale chunks: %w", err)
+		}
+	}
+
+	// 2. Process updated files
+	if len(updatedFiles) > 0 {
+		chunks := e.PrepareChunksForFiles(updatedFiles)
+		if len(chunks) > 0 {
+			if err := e.embedChunks(ctx, chunks); err != nil {
+				return fmt.Errorf("failed to embed updated chunks: %w", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (e *Engine) embedChunks(ctx context.Context, chunks []SearchChunk) error {
 	var texts []string
 	for _, c := range chunks {
 		texts = append(texts, c.ToEmbeddableText())
@@ -119,19 +158,48 @@ func (e *Engine) SearchByText(ctx context.Context, query string, topK int, exclu
 
 // PrepareSearchChunks converts nodes into optimized chunks, aggregating by file context.
 func (e *Engine) PrepareSearchChunks() []SearchChunk {
+	// Collect all filepaths from the graph
+	uniqueFiles := make(map[string]bool)
+	for _, node := range e.graph.Nodes {
+		uniqueFiles[node.Unit.Filepath] = true
+	}
+
+	var files []string
+	for f := range uniqueFiles {
+		files = append(files, f)
+	}
+
+	return e.PrepareChunksForFiles(files)
+}
+
+// PrepareChunksForFiles generates search chunks for specific files.
+func (e *Engine) PrepareChunksForFiles(filepaths []string) []SearchChunk {
 	var chunks []SearchChunk
 
 	// Group nodes by file path to create "File Chunks" or "Logical Component Chunks"
-	files := make(map[string][]*graph.Node)
+	// Optimization: Only scan nodes that belong to requested filepaths
+	// Since graph.Nodes is a map by ID, we need to iterate all or use an index.
+	// For now, iterating all is acceptable but inefficient for large graphs.
+	// TODO: Use FindNodesByFile from store or build an index in memory if repeated often.
+	// Current Graph struct doesn't have a file index in memory, but we can build a temp map.
 
-	for _, node := range e.graph.Nodes {
-		if !isExported(node.Unit.Name) {
-			continue
-		}
-		files[node.Unit.Filepath] = append(files[node.Unit.Filepath], node)
+	targetFiles := make(map[string]bool)
+	for _, f := range filepaths {
+		targetFiles[f] = true
 	}
 
-	for path, nodes := range files {
+	fileNodes := make(map[string][]*graph.Node)
+
+	for _, node := range e.graph.Nodes {
+		if targetFiles[node.Unit.Filepath] {
+			if !isExported(node.Unit.Name) {
+				continue
+			}
+			fileNodes[node.Unit.Filepath] = append(fileNodes[node.Unit.Filepath], node)
+		}
+	}
+
+	for path, nodes := range fileNodes {
 		if len(nodes) == 0 {
 			continue
 		}
@@ -206,7 +274,7 @@ func (e *Engine) PrepareSearchChunks() []SearchChunk {
 		chunks = append(chunks, chunk)
 	}
 
-	fmt.Printf("📦 Optimized Chunks: Reduced to %d File-based Contexts\n", len(chunks))
+	fmt.Printf("📦 Prepared %d Chunks from %d files\n", len(chunks), len(filepaths))
 	return chunks
 }
 

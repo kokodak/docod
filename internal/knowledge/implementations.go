@@ -152,6 +152,40 @@ func (s *GeminiSummarizer) SummarizeFullDoc(ctx context.Context, archChunks, fea
 	return s.generate(ctx, prompt)
 }
 
+func (s *GeminiSummarizer) UpdateDocSection(ctx context.Context, currentContent string, relevantCode []SearchChunk) (string, error) {
+	prompt := s.promptBuilder.BuildUpdateDocPrompt(currentContent, relevantCode)
+	return s.generate(ctx, prompt)
+}
+
+func (s *GeminiSummarizer) GenerateNewSection(ctx context.Context, relevantCode []SearchChunk) (string, error) {
+	prompt := s.promptBuilder.BuildNewSectionPrompt(relevantCode)
+	return s.generate(ctx, prompt)
+}
+
+func (s *GeminiSummarizer) FindInsertionPoint(ctx context.Context, toc []string, newContent string) (int, error) {
+	prompt := s.promptBuilder.BuildInsertionPointPrompt(toc, newContent)
+	resp, err := s.generate(ctx, prompt)
+	if err != nil {
+		return -1, err
+	}
+	
+	// Parse integer from response
+	var index int
+	_, err = fmt.Sscanf(strings.TrimSpace(resp), "%d", &index)
+	if err != nil {
+		// Fallback: try to find number in string if LLM was chatty
+		// Simple scan
+		words := strings.Fields(resp)
+		for _, w := range words {
+			if n, err := fmt.Sscanf(w, "%d", &index); err == nil && n == 1 {
+				return index, nil
+			}
+		}
+		return -1, fmt.Errorf("failed to parse index from LLM response: %s", resp)
+	}
+	return index, nil
+}
+
 func (s *GeminiSummarizer) generate(ctx context.Context, prompt string) (string, error) {
 	contents := genai.Text(prompt)
 	resp, err := s.client.Models.GenerateContent(ctx, s.model, contents, nil)
@@ -162,7 +196,19 @@ func (s *GeminiSummarizer) generate(ctx context.Context, prompt string) (string,
 	if text == "" {
 		return "No analysis available.", nil
 	}
-	return text, nil
+	return cleanMarkdownOutput(text), nil
+}
+
+func cleanMarkdownOutput(text string) string {
+	text = strings.TrimSpace(text)
+	if strings.HasPrefix(text, "```markdown") {
+		text = strings.TrimPrefix(text, "```markdown")
+		text = strings.TrimSuffix(text, "```")
+	} else if strings.HasPrefix(text, "```") {
+		text = strings.TrimPrefix(text, "```")
+		text = strings.TrimSuffix(text, "```")
+	}
+	return strings.TrimSpace(text)
 }
 
 // MemoryIndex is a simple in-memory vector storage with hash-based caching and graph awareness.
@@ -187,6 +233,28 @@ func (m *MemoryIndex) Add(ctx context.Context, items []VectorItem) error {
 			m.hashes[item.Chunk.ID] = true
 		}
 	}
+	return nil
+}
+
+// Delete removes items from the index.
+func (m *MemoryIndex) Delete(ctx context.Context, ids []string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	idSet := make(map[string]bool)
+	for _, id := range ids {
+		idSet[id] = true
+	}
+
+	var newItems []VectorItem
+	for _, item := range m.items {
+		if !idSet[item.Chunk.ID] {
+			newItems = append(newItems, item)
+		} else {
+			delete(m.hashes, item.Chunk.ID)
+		}
+	}
+	m.items = newItems
 	return nil
 }
 

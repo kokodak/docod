@@ -21,6 +21,9 @@ type CodeGraphStore interface {
 	// SaveGraph persists the entire graph structure (nodes and edges).
 	SaveGraph(ctx context.Context, g *graph.Graph) error
 
+	// LoadGraph retrieves the entire graph structure from the database.
+	LoadGraph(ctx context.Context) (*graph.Graph, error)
+
 	// GetNode retrieves a node by its ID.
 	GetNode(ctx context.Context, id string) (*graph.Node, error)
 

@@ -142,9 +142,8 @@ func (s *SQLiteStore) SaveGraph(ctx context.Context, g *graph.Graph) error {
 		}
 	}
 
-	// 2. Save Edges (Delete all first? Or Upsert? For simplicity, we can ignore conflicts or replace)
-	// For incremental updates, we might want to be more careful. But for "SaveGraph", replacing edges for known nodes is usually okay.
-	// Here we just insert and ignore conflicts for existing edges.
+	// 2. Save Edges
+	// Insert edges, ignoring duplicates to support incremental updates.
 	edgeStmt, err := tx.PrepareContext(ctx, `
 		INSERT INTO edges (from_id, to_id, kind) VALUES (?, ?, ?)
 		ON CONFLICT(from_id, to_id, kind) DO NOTHING
@@ -161,6 +160,49 @@ func (s *SQLiteStore) SaveGraph(ctx context.Context, g *graph.Graph) error {
 	}
 
 	return tx.Commit()
+}
+
+func (s *SQLiteStore) LoadGraph(ctx context.Context) (*graph.Graph, error) {
+	g := graph.NewGraph()
+
+	// 1. Load Nodes
+	rows, err := s.db.QueryContext(ctx, "SELECT id, name, package, unit_type, filepath, start_line, end_line, content, content_hash, description, details FROM nodes")
+	if err != nil {
+		return nil, fmt.Errorf("failed to query nodes: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var u extractor.CodeUnit
+		var details []byte
+		if err := rows.Scan(&u.ID, &u.Name, &u.Package, &u.UnitType, &u.Filepath, &u.StartLine, &u.EndLine, &u.Content, &u.ContentHash, &u.Description, &details); err != nil {
+			return nil, fmt.Errorf("failed to scan node: %w", err)
+		}
+		if len(details) > 0 {
+			_ = json.Unmarshal(details, &u.Details)
+		}
+		g.Nodes[u.ID] = &graph.Node{Unit: &u}
+	}
+
+	// Rebuild name index for lookups
+	g.RebuildIndices()
+
+	// 2. Load Edges
+	edgeRows, err := s.db.QueryContext(ctx, "SELECT from_id, to_id, kind FROM edges")
+	if err != nil {
+		return nil, fmt.Errorf("failed to query edges: %w", err)
+	}
+	defer edgeRows.Close()
+
+	for edgeRows.Next() {
+		var edge graph.Edge
+		if err := edgeRows.Scan(&edge.From, &edge.To, &edge.Kind); err != nil {
+			return nil, fmt.Errorf("failed to scan edge: %w", err)
+		}
+		g.Edges = append(g.Edges, edge)
+	}
+
+	return g, nil
 }
 
 func (s *SQLiteStore) GetNode(ctx context.Context, id string) (*graph.Node, error) {
@@ -299,6 +341,54 @@ func (s *SQLiteStore) SearchSimilar(ctx context.Context, queryVector []float32, 
 	}
 
 	return result, nil
+}
+
+// Add implements knowledge.Indexer interface
+func (s *SQLiteStore) Add(ctx context.Context, items []knowledge.VectorItem) error {
+	return s.SaveEmbeddings(ctx, items)
+}
+
+// Delete implements knowledge.Indexer interface
+func (s *SQLiteStore) Delete(ctx context.Context, ids []string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	query := "DELETE FROM chunks WHERE id = ?"
+	stmt, err := tx.PrepareContext(ctx, query)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, id := range ids {
+		if _, err := stmt.Exec(id); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
+// Search implements knowledge.Indexer interface
+func (s *SQLiteStore) Search(ctx context.Context, queryVector []float32, topK int) ([]knowledge.VectorItem, error) {
+	chunks, err := s.SearchSimilar(ctx, queryVector, topK)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Convert SearchChunk to VectorItem.
+	var items []knowledge.VectorItem
+	for _, c := range chunks {
+		items = append(items, knowledge.VectorItem{Chunk: c})
+	}
+	return items, nil
 }
 
 func cosineSimilarity(a, b []float32) float32 {
