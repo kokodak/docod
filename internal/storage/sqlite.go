@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"strings"
 
 	"docod/internal/extractor"
 	"docod/internal/graph"
@@ -142,11 +143,37 @@ func (s *SQLiteStore) SaveGraph(ctx context.Context, g *graph.Graph) error {
 		}
 	}
 
+	// 1-1. Remove stale nodes that are not in the latest graph snapshot.
+	// SaveGraph is used as a full graph snapshot write; stale rows must be deleted.
+	nodeIDs := make([]string, 0, len(g.Nodes))
+	for id := range g.Nodes {
+		nodeIDs = append(nodeIDs, id)
+	}
+	if len(nodeIDs) == 0 {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM nodes`); err != nil {
+			return err
+		}
+	} else {
+		placeholders := strings.Repeat("?,", len(nodeIDs))
+		placeholders = strings.TrimSuffix(placeholders, ",")
+		query := fmt.Sprintf(`DELETE FROM nodes WHERE id NOT IN (%s)`, placeholders)
+		args := make([]interface{}, 0, len(nodeIDs))
+		for _, id := range nodeIDs {
+			args = append(args, id)
+		}
+		if _, err := tx.ExecContext(ctx, query, args...); err != nil {
+			return err
+		}
+	}
+
 	// 2. Save Edges
-	// Insert edges, ignoring duplicates to support incremental updates.
+	// Edge set must also match the latest snapshot exactly.
+	if _, err := tx.ExecContext(ctx, `DELETE FROM edges`); err != nil {
+		return err
+	}
+
 	edgeStmt, err := tx.PrepareContext(ctx, `
 		INSERT INTO edges (from_id, to_id, kind) VALUES (?, ?, ?)
-		ON CONFLICT(from_id, to_id, kind) DO NOTHING
 	`)
 	if err != nil {
 		return err
@@ -382,7 +409,7 @@ func (s *SQLiteStore) Search(ctx context.Context, queryVector []float32, topK in
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Convert SearchChunk to VectorItem.
 	var items []knowledge.VectorItem
 	for _, c := range chunks {
