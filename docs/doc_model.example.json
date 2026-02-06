@@ -1,0 +1,125 @@
+{
+  "schema_version": "v0.1.0",
+  "document": {
+    "id": "docod-main-doc",
+    "title": "Project Documentation",
+    "root_section_ids": [
+      "overview",
+      "key-features",
+      "development"
+    ]
+  },
+  "sections": [
+    {
+      "id": "overview",
+      "title": "Overview",
+      "level": 1,
+      "order": 0,
+      "parent_id": null,
+      "content_md": "System overview and architecture.",
+      "summary": "High-level architecture and purpose.",
+      "status": "active",
+      "sources": [
+        {
+          "symbol_id": "cmd/docod/main.go:scanCmd:76",
+          "file_path": "cmd/docod/main.go",
+          "start_line": 76,
+          "end_line": 145,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.95
+        }
+      ],
+      "hash": "sha256:example-overview",
+      "last_updated": {
+        "commit_sha": "HEAD",
+        "timestamp": "2026-02-06T00:00:00Z"
+      }
+    },
+    {
+      "id": "key-features",
+      "title": "Key Features",
+      "level": 1,
+      "order": 1,
+      "parent_id": null,
+      "content_md": "Core features and how they work.",
+      "summary": "Feature-level explanation with examples.",
+      "status": "active",
+      "sources": [
+        {
+          "symbol_id": "internal/analysis/impact.go:AnalyzeImpact:25",
+          "file_path": "internal/analysis/impact.go",
+          "start_line": 25,
+          "end_line": 61,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.91
+        },
+        {
+          "symbol_id": "internal/graph/graph.go:LinkRelations:69",
+          "file_path": "internal/graph/graph.go",
+          "start_line": 69,
+          "end_line": 84,
+          "relation": "dependency",
+          "commit_sha": "HEAD",
+          "confidence": 0.88
+        }
+      ],
+      "hash": "sha256:example-key-features",
+      "last_updated": {
+        "commit_sha": "HEAD",
+        "pr_number": 42,
+        "timestamp": "2026-02-06T00:00:00Z"
+      }
+    },
+    {
+      "id": "development",
+      "title": "Development",
+      "level": 1,
+      "order": 2,
+      "parent_id": null,
+      "content_md": "Run, test, and configuration details.",
+      "summary": "Developer setup and workflows.",
+      "status": "active",
+      "sources": [
+        {
+          "symbol_id": "internal/config/config.go:LoadConfig:26",
+          "file_path": "internal/config/config.go",
+          "start_line": 26,
+          "end_line": 49,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.89
+        }
+      ],
+      "hash": "sha256:example-development",
+      "last_updated": {
+        "commit_sha": "HEAD",
+        "timestamp": "2026-02-06T00:00:00Z"
+      }
+    }
+  ],
+  "policies": {
+    "required_section_ids": [
+      "overview",
+      "key-features",
+      "development"
+    ],
+    "max_section_chars": 8000,
+    "style": {
+      "tone": "technical, objective",
+      "audience": "open-source maintainers",
+      "code_block_language": "go",
+      "focus_mode": "semantic",
+      "avoid_call_graph_narration": true,
+      "prefer_conceptual_diagrams": true,
+      "prefer_task_oriented_examples": true
+    }
+  },
+  "meta": {
+    "repo": "kokodak/docod",
+    "default_branch": "main",
+    "generated_at": "2026-02-06T00:00:00Z",
+    "generator_version": "docod-dev"
+  }
+}

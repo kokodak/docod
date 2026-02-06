@@ -174,6 +174,7 @@ func (s *SQLiteStore) SaveGraph(ctx context.Context, g *graph.Graph) error {
 
 	edgeStmt, err := tx.PrepareContext(ctx, `
 		INSERT INTO edges (from_id, to_id, kind) VALUES (?, ?, ?)
+		ON CONFLICT(from_id, to_id, kind) DO NOTHING
 	`)
 	if err != nil {
 		return err

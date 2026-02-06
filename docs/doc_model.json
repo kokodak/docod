@@ -1,0 +1,85 @@
+{
+  "schema_version": "v0.1.0",
+  "document": {
+    "id": "docod-main-doc",
+    "title": "Project Documentation",
+    "root_section_ids": [
+      "overview",
+      "key-features",
+      "development"
+    ]
+  },
+  "sections": [
+    {
+      "id": "overview",
+      "title": "Overview",
+      "level": 1,
+      "order": 0,
+      "parent_id": null,
+      "content_md": "# Overview\n\n## Purpose\n\n`docod` provides incremental documentation for evolving codebases.\nIt focuses on keeping official technical docs aligned with code changes while minimizing manual effort.\n\n## Architecture\n\n`docod` builds a code graph from parsed symbols and uses that graph to determine impacted documentation sections.\nFor semantic writing tasks, generation is scoped to selected sections only.\n\n## System Diagram\n\n```mermaid\ngraph TD\n  A[Code Changes] --> B[AST Extraction]\n  B --> C[Dependency Graph]\n  C --> D[Section Impact Selection]\n  D --> E[Doc Model Update]\n  E --> F[Markdown Render]\n```",
+      "summary": "Purpose, architecture, and high-level flow of docod.",
+      "status": "active",
+      "sources": [],
+      "hash": "sha256:reset-overview",
+      "last_updated": {
+        "commit_sha": "HEAD",
+        "timestamp": "2026-02-06T00:00:00Z"
+      }
+    },
+    {
+      "id": "key-features",
+      "title": "Key Features",
+      "level": 1,
+      "order": 1,
+      "parent_id": null,
+      "content_md": "# Key Features\n\n## Incremental Section Updates\n\nOnly impacted sections should be updated on each sync, instead of regenerating the entire document.\n\n### Example\n\n```bash\ndocod sync\n```\n\n## Model-Driven Documentation\n\n`docs/doc_model.json` is the source of truth for section structure and ordering.\n`docs/documentation.md` is rendered from the model.\n\n### Example\n\n```bash\ndocod sync --help\n```",
+      "summary": "Incremental updates and model-driven documentation workflow.",
+      "status": "active",
+      "sources": [],
+      "hash": "sha256:reset-key-features",
+      "last_updated": {
+        "commit_sha": "HEAD",
+        "timestamp": "2026-02-06T00:00:00Z"
+      }
+    },
+    {
+      "id": "development",
+      "title": "Development",
+      "level": 1,
+      "order": 2,
+      "parent_id": null,
+      "content_md": "# Development\n\n## Quick Start\n\n1. Configure `config.yaml`.\n2. Run `docod sync`.\n3. Review generated markdown changes.\n\n## Configuration Notes\n\n- Keep API keys in environment variables.\n- Tune `docs.max_llm_sections` to control generation cost.\n- Enable optional routing features only when needed.",
+      "summary": "Setup and configuration guidance for running docod.",
+      "status": "active",
+      "sources": [],
+      "hash": "sha256:reset-development",
+      "last_updated": {
+        "commit_sha": "HEAD",
+        "timestamp": "2026-02-06T00:00:00Z"
+      }
+    }
+  ],
+  "policies": {
+    "required_section_ids": [
+      "overview",
+      "key-features",
+      "development"
+    ],
+    "max_section_chars": 8000,
+    "style": {
+      "tone": "technical, objective",
+      "audience": "open-source maintainers",
+      "code_block_language": "go",
+      "focus_mode": "semantic",
+      "avoid_call_graph_narration": true,
+      "prefer_conceptual_diagrams": true,
+      "prefer_task_oriented_examples": true
+    }
+  },
+  "meta": {
+    "repo": ".",
+    "default_branch": "main",
+    "generated_at": "2026-02-06T00:00:00Z",
+    "generator_version": "docod-dev"
+  }
+}

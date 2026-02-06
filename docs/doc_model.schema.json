@@ -1,0 +1,282 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://docod.dev/schema/doc_model.schema.json",
+  "title": "Docod Document Model",
+  "description": "Versioned source-of-truth model for incremental documentation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "document",
+    "sections",
+    "policies",
+    "meta"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "root_section_ids"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "root_section_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "sections": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/section"
+      }
+    },
+    "policies": {
+      "$ref": "#/$defs/policies"
+    },
+    "meta": {
+      "$ref": "#/$defs/meta"
+    }
+  },
+  "$defs": {
+    "section": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "level",
+        "order",
+        "parent_id",
+        "content_md",
+        "sources",
+        "hash",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9._:-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "level": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 6
+        },
+        "order": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "parent_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "content_md": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "deprecated",
+            "archived"
+          ]
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/source_ref"
+          }
+        },
+        "hash": {
+          "type": "string",
+          "description": "Stable checksum of normalized section content and source refs."
+        },
+        "last_updated": {
+          "$ref": "#/$defs/update_info"
+        }
+      }
+    },
+    "source_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "symbol_id",
+        "file_path",
+        "start_line",
+        "end_line",
+        "relation"
+      ],
+      "properties": {
+        "symbol_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "file_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "start_line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "end_line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "relation": {
+          "type": "string",
+          "enum": [
+            "primary",
+            "dependency",
+            "context"
+          ]
+        },
+        "commit_sha": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "update_info": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commit_sha",
+        "timestamp"
+      ],
+      "properties": {
+        "commit_sha": {
+          "type": "string"
+        },
+        "pr_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "policies": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required_section_ids",
+        "max_section_chars",
+        "style"
+      ],
+      "properties": {
+        "required_section_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "max_section_chars": {
+          "type": "integer",
+          "minimum": 200
+        },
+        "style": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "tone",
+            "audience",
+            "code_block_language",
+            "focus_mode",
+            "avoid_call_graph_narration",
+            "prefer_conceptual_diagrams",
+            "prefer_task_oriented_examples"
+          ],
+          "properties": {
+            "tone": {
+              "type": "string"
+            },
+            "audience": {
+              "type": "string"
+            },
+            "code_block_language": {
+              "type": "string"
+            },
+            "focus_mode": {
+              "type": "string",
+              "enum": [
+                "semantic",
+                "reference",
+                "hybrid"
+              ]
+            },
+            "avoid_call_graph_narration": {
+              "type": "boolean"
+            },
+            "prefer_conceptual_diagrams": {
+              "type": "boolean"
+            },
+            "prefer_task_oriented_examples": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repo",
+        "default_branch",
+        "generated_at"
+      ],
+      "properties": {
+        "repo": {
+          "type": "string"
+        },
+        "default_branch": {
+          "type": "string"
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "generator_version": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

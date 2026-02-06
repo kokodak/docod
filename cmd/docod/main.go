@@ -41,9 +41,13 @@ func init() {
 	// Default DB path is local to the project
 	rootCmd.PersistentFlags().StringVarP(&dbPath, "db", "d", "docod.db", "Path to the local knowledge graph database (SQLite)")
 
+	rootCmd.AddCommand(syncCmd)
 	rootCmd.AddCommand(scanCmd)
 	rootCmd.AddCommand(updateCmd)
 	rootCmd.AddCommand(generateCmd)
+
+	// Prefer `sync` as the primary command; keep generate for compatibility.
+	generateCmd.Hidden = true
 }
 
 // initStore initializes the SQLite store.
@@ -142,6 +146,23 @@ var scanCmd = &cobra.Command{
 		// For now, we leave it to explicit 'generate' or 'update' to avoid cost on every scan.
 
 		fmt.Printf("🎉 Scan complete! Database: %s\n", dbPath)
+	},
+}
+
+var syncCmd = &cobra.Command{
+	Use:   "sync",
+	Short: "Run docod in automatic mode (bootstrap or incremental)",
+	Run: func(cmd *cobra.Command, args []string) {
+		// Bootstrap if db does not exist.
+		if _, err := os.Stat(dbPath); os.IsNotExist(err) {
+			fmt.Println("🆕 No local graph database found. Running initial bootstrap...")
+			scanCmd.Run(scanCmd, []string{"."})
+			generateCmd.Run(generateCmd, []string{})
+			return
+		}
+
+		// Otherwise, run incremental update flow.
+		updateCmd.Run(updateCmd, []string{})
 	},
 }
 
@@ -251,7 +272,7 @@ var updateCmd = &cobra.Command{
 		}
 
 		fmt.Println("🧠 Updating embeddings incrementally...")
-		
+
 		var updatedFiles, deletedFiles []string
 		for _, change := range changes {
 			if _, err := os.Stat(change.Path); os.IsNotExist(err) {

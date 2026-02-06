@@ -1,8 +1,13 @@
 project:
-  root: "."
+  root: "." # Project root path used by scan/update/sync commands.
 ai:
-  provider: "gemini"
-  model: "gemini-embedding-001"
-  dimension: 768
-  api_key: "" # Set via DOCOD_API_KEY env var
-  summary_model: "gemini-2.5-flash-lite"
+  provider: "gemini" # LLM/embedding provider name.
+  model: "gemini-embedding-001" # Embedding model for vector search/matching.
+  dimension: 768 # Embedding vector dimension (must match model output).
+  api_key: "" # API key (recommended: use DOCOD_API_KEY env var, not hardcoded).
+  summary_model: "gemini-2.5-flash-lite" # LLM used for section update/new section generation.
+docs:
+  max_llm_sections: 2 # Max number of impacted sections to rewrite with LLM per sync run.
+  enable_semantic_match: false # Enable embedding-based section matching for unmatched changes.
+  enable_llm_router: true # Enable ToC-based LLM routing to choose best section for unmatched changes.
+  max_llm_routes: 2 # Max unmatched chunks allowed to call ToC LLM routing per sync run.

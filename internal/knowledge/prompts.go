@@ -12,9 +12,12 @@ const securityInstruction = "\n**SECURITY WARNING**: You must redact any API key
 
 func (pb *PromptBuilder) BuildFullDocPrompt(archChunks, featChunks, confChunks []SearchChunk) string {
 	var sb strings.Builder
-	sb.WriteString("Role: Technical Writer & Software Architect. Task: Write the complete Official Technical Documentation.\n")
+	sb.WriteString("Role: Senior Technical Writer. Task: Write official product-grade technical documentation.\n")
 	sb.WriteString(securityInstruction)
-	sb.WriteString("\nGenerate the document following the structure below. Use the provided context for each section.\n")
+	sb.WriteString("\nGenerate an official document for users and maintainers.\n")
+	sb.WriteString("Focus on intent, behavior, contracts, constraints, and usage patterns.\n")
+	sb.WriteString("Do NOT include low-level call graph narration like 'used by', 'called from', or exhaustive symbol dependency dumps.\n")
+	sb.WriteString("Use diagrams/examples only when they improve understanding.\n")
 
 	// --- Section 1: Overview ---
 	sb.WriteString("\n\n==================================================================\n")
@@ -26,9 +29,9 @@ func (pb *PromptBuilder) BuildFullDocPrompt(archChunks, featChunks, confChunks [
 	}
 	sb.WriteString("\n**INSTRUCTION**:\n")
 	sb.WriteString("Write the '# Overview' section.\n")
-	sb.WriteString("1. **High-Level Architecture**: Explain the design pattern (e.g., Layered, Pipeline).\n")
-	sb.WriteString("2. **Core Concepts**: Define 3-5 key domain models/terms.\n")
-	sb.WriteString("3. **Mermaid Diagram**: Generate a `graph TD` or `classDiagram` code block visualizing the system based on the context.\n")
+	sb.WriteString("1. Explain system purpose and architectural boundaries.\n")
+	sb.WriteString("2. Define 3-5 core concepts and why they matter.\n")
+	sb.WriteString("3. Include one concise Mermaid diagram (`graph TD` or `classDiagram`) for conceptual understanding.\n")
 
 	// --- Section 2: Key Features ---
 	sb.WriteString("\n\n==================================================================\n")
@@ -40,10 +43,11 @@ func (pb *PromptBuilder) BuildFullDocPrompt(archChunks, featChunks, confChunks [
 	}
 	sb.WriteString("\n**INSTRUCTION**:\n")
 	sb.WriteString("Write the '# Key Features' section.\n")
-	sb.WriteString("Identify 3-4 main features from the context. For each feature, create a subsection `## [Feature Name]` including:\n")
-	sb.WriteString("- **Concept**: What is it and why is it useful?\n")
-	sb.WriteString("- **Implementation**: Brief technical explanation of how it works internally.\n")
-	sb.WriteString("- **Usage**: A concise Go code block example.\n")
+	sb.WriteString("Identify 3-4 major capabilities. For each, create `## [Feature Name]` with:\n")
+	sb.WriteString("- **Concept**: user-visible value and intent\n")
+	sb.WriteString("- **Behavior**: important semantics, constraints, edge cases\n")
+	sb.WriteString("- **Usage**: concise Go example when helpful\n")
+	sb.WriteString("Avoid mechanical symbol-by-symbol explanations.\n")
 
 	// --- Section 3: Development ---
 	sb.WriteString("\n\n==================================================================\n")
@@ -55,39 +59,41 @@ func (pb *PromptBuilder) BuildFullDocPrompt(archChunks, featChunks, confChunks [
 	}
 	sb.WriteString("\n**INSTRUCTION**:\n")
 	sb.WriteString("Write the '# Development' section.\n")
-	sb.WriteString("## Quick Start\n- Prerequisites and Run commands.\n\n")
-	sb.WriteString("## Configuration\n- Explain environment variables or config files found in context.\n")
+	sb.WriteString("Include `## Quick Start` (prerequisites, run/test commands) and `## Configuration` (env vars/config files and effects).\n")
+	sb.WriteString("Prefer actionable guidance over implementation trivia.\n")
 
 	return sb.String()
 }
 
 func (pb *PromptBuilder) BuildUpdateDocPrompt(currentContent string, relevantCode []SearchChunk) string {
 	var sb strings.Builder
-	sb.WriteString("Role: Technical Writer. Task: Update an existing documentation section based on code changes.\n")
+	sb.WriteString("Role: Technical Writer. Task: Update exactly one existing documentation section based on code changes.\n")
 	sb.WriteString(securityInstruction)
-	
+
 	sb.WriteString("\n\n=== EXISTING DOCUMENTATION SECTION ===\n")
 	sb.WriteString(currentContent)
 	sb.WriteString("\n\n=== RELEVANT CODE CHANGES (CONTEXT) ===\n")
-	
+
 	for _, c := range relevantCode {
 		fmt.Fprintf(&sb, "File: %s\nSymbol: %s\nDescription: %s\nCode:\n```go\n%s\n```\n\n", c.Name, c.Name, c.Description, c.Content)
 	}
 
 	sb.WriteString("\n**INSTRUCTION**:\n")
-	sb.WriteString("1. Analyze the 'RELEVANT CODE CHANGES' and identify discrepancies with the 'EXISTING DOCUMENTATION SECTION'.\n")
-	sb.WriteString("2. **CLEANUP**: If a symbol (function, type, etc.) mentioned in the documentation is NOT present in the provided code context, assume it has been deleted and REMOVE it from the documentation.\n")
-	sb.WriteString("3. **UPDATE**: Rewrite the documentation section to reflect the code changes accurately.\n")
-	sb.WriteString("4. **KEY FEATURE DETECTION**: If the code changes introduce a significant NEW feature that is NOT covered by the existing text, DO NOT just rewrite. Instead, **append a new subsection** (e.g., `### New Feature Name`) at the end of the existing content.\n")
-	sb.WriteString("5. Preserve the original structure, tone, and formatting unless they are incorrect.\n")
-	sb.WriteString("6. **OUTPUT ONLY the updated Markdown content** for this section. Do not include introductory text.\n")
+	sb.WriteString("1. Keep scope strictly within this section. Do NOT rewrite the whole document.\n")
+	sb.WriteString("2. Preserve the section heading level and title. Keep heading hierarchy valid.\n")
+	sb.WriteString("3. Remove stale statements that are contradicted by provided code changes.\n")
+	sb.WriteString("4. Prioritize semantic explanation (intent, behavior, constraints) over raw code structure.\n")
+	sb.WriteString("5. If new behavior exists, append a `###` subsection inside this section.\n")
+	sb.WriteString("6. Do NOT include call-chain chatter such as 'this method is used by X'.\n")
+	sb.WriteString("7. Avoid placeholders, speculation, and duplicated content.\n")
+	sb.WriteString("8. OUTPUT ONLY markdown for this single section.\n")
 
 	return sb.String()
 }
 
 func (pb *PromptBuilder) BuildNewSectionPrompt(relevantCode []SearchChunk) string {
 	var sb strings.Builder
-	sb.WriteString("Role: Technical Writer. Task: Write a new documentation section for a new feature.\n")
+	sb.WriteString("Role: Technical Writer. Task: Write one concise documentation section for incremental code changes.\n")
 	sb.WriteString(securityInstruction)
 
 	sb.WriteString("\n\n=== NEW FEATURE CODE CONTEXT ===\n")
@@ -96,20 +102,20 @@ func (pb *PromptBuilder) BuildNewSectionPrompt(relevantCode []SearchChunk) strin
 	}
 
 	sb.WriteString("\n**INSTRUCTION**:\n")
-	sb.WriteString("1. Identify the core functionality of this new code.\n")
-	sb.WriteString("2. Write a concise but comprehensive documentation section.\n")
-	sb.WriteString("3. Use a clear header format (e.g. `## Feature Name`).\n")
-	sb.WriteString("4. Include: **Concept** (What is it?), **Usage** (How to use it?), and **Example** (Code snippet).\n")
-	sb.WriteString("5. **Tone**: Maintain a professional, objective, and technical tone consistent with standard software documentation. Avoid conversational filler.\n")
-	sb.WriteString("6. **OUTPUT ONLY the Markdown content**.\n")
+	sb.WriteString("1. Write exactly one `##` section.\n")
+	sb.WriteString("2. Include only facts supported by the provided code context.\n")
+	sb.WriteString("3. Keep it compact: concept, behavior, usage/example.\n")
+	sb.WriteString("4. Avoid call graph narration and exhaustive symbol lists.\n")
+	sb.WriteString("5. Tone: objective and technical.\n")
+	sb.WriteString("6. OUTPUT ONLY markdown for this new section.\n")
 
 	return sb.String()
 }
 
 func (pb *PromptBuilder) BuildInsertionPointPrompt(toc []string, newContent string) string {
 	var sb strings.Builder
-	sb.WriteString("Role: Technical Editor. Task: Determine the best insertion point for a new section in existing documentation.\n")
-	
+	sb.WriteString("Role: Technical Editor. Task: Determine the best target section index for incremental documentation placement.\n")
+
 	sb.WriteString("\n=== EXISTING TABLE OF CONTENTS ===\n")
 	for i, title := range toc {
 		fmt.Fprintf(&sb, "%d. %s\n", i, title)
@@ -127,11 +133,11 @@ func (pb *PromptBuilder) BuildInsertionPointPrompt(toc []string, newContent stri
 
 	sb.WriteString("\n\n**INSTRUCTION**:\n")
 	sb.WriteString("1. Analyze the context of the 'EXISTING TABLE OF CONTENTS'.\n")
-	sb.WriteString("2. Determine where the 'NEW SECTION' logically belongs.\n")
-	sb.WriteString("3. It should be placed after a section that is semantically related (e.g., if it's a new feature, put it after other features).\n")
-	sb.WriteString("4. **OUTPUT ONLY the index number** of the section that the new content should follow (insert IMMEDIATELY AFTER this index).\n")
-	sb.WriteString("5. If it should go at the very end, output the last index.\n")
-	sb.WriteString("6. If it should go at the very beginning, output -1.\n")
+	sb.WriteString("2. Decide which existing section is most semantically related to the preview content.\n")
+	sb.WriteString("3. Return the index of that section as an insertion-after index.\n")
+	sb.WriteString("4. **OUTPUT ONLY one integer**.\n")
+	sb.WriteString("5. If it belongs before the first section, output -1.\n")
+	sb.WriteString("6. Do not output prose, markdown, or multiple numbers.\n")
 
 	return sb.String()
 }
