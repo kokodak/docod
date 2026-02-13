@@ -45,7 +45,7 @@ func (u *DocUpdater) UpdateDocs(ctx context.Context, docPath string, changedFile
 
 	fileChunks := u.engine.PrepareChunksForFiles(changedFilePaths)
 	if len(fileChunks) == 0 {
-		fmt.Println("  -> No exported code chunks changed; skipping doc update.")
+		fmt.Println("  -> No documentation-relevant code chunks changed; skipping doc update.")
 		return nil
 	}
 

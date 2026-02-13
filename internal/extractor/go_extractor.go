@@ -3,7 +3,6 @@ package extractor
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 	"strings"
 
 	sitter "github.com/smacker/go-tree-sitter"
@@ -44,9 +43,23 @@ func (g *GoExtractor) ExtractUnit(captureName string, node *sitter.Node, sourceC
 		unit.Package = packageName
 		unit.Language = "go"
 		unit.Role = g.inferRole(unit)
+		unit.ID = BuildStableSymbolID(unit)
 		unit.ContentHash = g.calculateHash(unit.Content) // Calculate hash
 		if unit.Relations == nil {
 			unit.Relations = []Relation{}
+		}
+		for i := range unit.Relations {
+			if unit.Relations[i].Resolver == "" {
+				unit.Relations[i].Resolver = "ast_heuristic"
+			}
+			if unit.Relations[i].Confidence <= 0 {
+				unit.Relations[i].Confidence = 0.6
+			}
+			if unit.Relations[i].Evidence.Filepath == "" {
+				unit.Relations[i].Evidence.Filepath = filepath
+				unit.Relations[i].Evidence.StartLine = unit.StartLine
+				unit.Relations[i].Evidence.EndLine = unit.EndLine
+			}
 		}
 	}
 	return unit
@@ -171,8 +184,6 @@ func (g *GoExtractor) extractTypeUnit(node *sitter.Node, sourceCode []byte, file
 	content := parentNode.Content(sourceCode)
 	docComment := g.extractDocComment(parentNode, sourceCode)
 
-	id := fmt.Sprintf("%s:%s:%d", filepath, name, node.StartPoint().Row+1)
-
 	var details interface{}
 	var unitType string
 	relations := []Relation{}
@@ -190,7 +201,17 @@ func (g *GoExtractor) extractTypeUnit(node *sitter.Node, sourceCode []byte, file
 					kind = "embeds"
 				}
 				if isUserDefinedType(field.Type) {
-					relations = append(relations, Relation{Target: field.Type, Kind: kind})
+					relations = append(relations, Relation{
+						Target:     field.Type,
+						Kind:       kind,
+						Resolver:   "ast_heuristic",
+						Confidence: 0.6,
+						Evidence: Evidence{
+							Filepath:  filepath,
+							StartLine: int(parentNode.StartPoint().Row + 1),
+							EndLine:   int(parentNode.EndPoint().Row + 1),
+						},
+					})
 				}
 			}
 		case "interface_type":
@@ -199,7 +220,17 @@ func (g *GoExtractor) extractTypeUnit(node *sitter.Node, sourceCode []byte, file
 			details = interfaceDetails
 			for _, method := range interfaceDetails.Methods {
 				if !strings.Contains(method.Signature, "(") && isUserDefinedType(method.Signature) {
-					relations = append(relations, Relation{Target: method.Signature, Kind: "embeds"})
+					relations = append(relations, Relation{
+						Target:     method.Signature,
+						Kind:       "embeds",
+						Resolver:   "ast_heuristic",
+						Confidence: 0.55,
+						Evidence: Evidence{
+							Filepath:  filepath,
+							StartLine: int(parentNode.StartPoint().Row + 1),
+							EndLine:   int(parentNode.EndPoint().Row + 1),
+						},
+					})
 				}
 			}
 		default:
@@ -208,7 +239,6 @@ func (g *GoExtractor) extractTypeUnit(node *sitter.Node, sourceCode []byte, file
 	}
 
 	return &CodeUnit{
-		ID:          id,
 		Filepath:    filepath,
 		StartLine:   int(parentNode.StartPoint().Row + 1),
 		EndLine:     int(parentNode.EndPoint().Row + 1),
@@ -333,7 +363,6 @@ func (g *GoExtractor) extractFunctionUnit(node *sitter.Node, sourceCode []byte, 
 	}
 	name := nameNode.Content(sourceCode)
 	content := node.Content(sourceCode)
-	id := fmt.Sprintf("%s:%s:%d", filepath, name, node.StartPoint().Row+1)
 
 	unitType := "function"
 	details := GoFunctionDetails{
@@ -348,7 +377,17 @@ func (g *GoExtractor) extractFunctionUnit(node *sitter.Node, sourceCode []byte, 
 			details.Receiver = receiverNode.Content(sourceCode)
 			recvType := extractBaseType(details.Receiver)
 			if recvType != "" {
-				relations = append(relations, Relation{Target: recvType, Kind: "belongs_to"})
+				relations = append(relations, Relation{
+					Target:     recvType,
+					Kind:       "belongs_to",
+					Resolver:   "ast_heuristic",
+					Confidence: 0.8,
+					Evidence: Evidence{
+						Filepath:  filepath,
+						StartLine: int(node.StartPoint().Row + 1),
+						EndLine:   int(node.EndPoint().Row + 1),
+					},
+				})
 			}
 		}
 	}
@@ -358,7 +397,17 @@ func (g *GoExtractor) extractFunctionUnit(node *sitter.Node, sourceCode []byte, 
 		details.Parameters = g.extractParams(paramsNode, sourceCode)
 		for _, p := range details.Parameters {
 			if isUserDefinedType(p.Type) {
-				relations = append(relations, Relation{Target: p.Type, Kind: "uses_type"})
+				relations = append(relations, Relation{
+					Target:     p.Type,
+					Kind:       "uses_type",
+					Resolver:   "ast_heuristic",
+					Confidence: 0.65,
+					Evidence: Evidence{
+						Filepath:  filepath,
+						StartLine: int(node.StartPoint().Row + 1),
+						EndLine:   int(node.EndPoint().Row + 1),
+					},
+				})
 			}
 		}
 	}
@@ -366,7 +415,17 @@ func (g *GoExtractor) extractFunctionUnit(node *sitter.Node, sourceCode []byte, 
 		details.Returns = g.extractReturns(resultNode, sourceCode)
 		for _, r := range details.Returns {
 			if isUserDefinedType(r.Type) {
-				relations = append(relations, Relation{Target: r.Type, Kind: "uses_type"})
+				relations = append(relations, Relation{
+					Target:     r.Type,
+					Kind:       "uses_type",
+					Resolver:   "ast_heuristic",
+					Confidence: 0.65,
+					Evidence: Evidence{
+						Filepath:  filepath,
+						StartLine: int(node.StartPoint().Row + 1),
+						EndLine:   int(node.EndPoint().Row + 1),
+					},
+				})
 			}
 		}
 	}
@@ -381,7 +440,6 @@ func (g *GoExtractor) extractFunctionUnit(node *sitter.Node, sourceCode []byte, 
 	}
 
 	return &CodeUnit{
-		ID:          id,
 		Filepath:    filepath,
 		StartLine:   int(node.StartPoint().Row + 1),
 		EndLine:     int(node.EndPoint().Row + 1),
@@ -417,7 +475,16 @@ func (g *GoExtractor) extractBodyRelations(bodyNode *sitter.Node, sourceCode []b
 		}
 		if target != "" && !seen[target] {
 			if !isNoise(target) {
-				relations = append(relations, Relation{Target: target, Kind: kind})
+				relations = append(relations, Relation{
+					Target:     target,
+					Kind:       kind,
+					Resolver:   "ast_heuristic",
+					Confidence: 0.7,
+					Evidence: Evidence{
+						StartLine: int(n.StartPoint().Row + 1),
+						EndLine:   int(n.EndPoint().Row + 1),
+					},
+				})
 				seen[target] = true
 			}
 		}
@@ -497,7 +564,6 @@ func (g *GoExtractor) extractConstUnit(node *sitter.Node, sourceCode []byte, fil
 		details.Value = g.sanitizeValue(name, rawVal)
 	}
 	return &CodeUnit{
-		ID:          fmt.Sprintf("%s:%s:%d", filepath, name, node.StartPoint().Row+1),
 		Filepath:    filepath,
 		StartLine:   int(node.StartPoint().Row + 1),
 		EndLine:     int(node.EndPoint().Row + 1),
@@ -530,7 +596,6 @@ func (g *GoExtractor) extractVarUnit(node *sitter.Node, sourceCode []byte, filep
 		details.Value = g.sanitizeValue(name, rawVal)
 	}
 	return &CodeUnit{
-		ID:          fmt.Sprintf("%s:%s:%d", filepath, name, node.StartPoint().Row+1),
 		Filepath:    filepath,
 		StartLine:   int(node.StartPoint().Row + 1),
 		EndLine:     int(node.EndPoint().Row + 1),

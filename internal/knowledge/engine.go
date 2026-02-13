@@ -2,7 +2,6 @@ package knowledge
 
 import (
 	"context"
-	"docod/internal/extractor"
 	"docod/internal/graph"
 	"fmt"
 	"path/filepath"
@@ -190,9 +189,9 @@ func (e *Engine) PrepareChunksForFiles(filepaths []string) []SearchChunk {
 
 	fileNodes := make(map[string][]*graph.Node)
 
-	for _, node := range e.graph.Nodes {
+	for id, node := range e.graph.Nodes {
 		if targetFiles[node.Unit.Filepath] {
-			if !isExported(node.Unit.Name) {
+			if !e.isDocRelevantNode(id, node) {
 				continue
 			}
 			fileNodes[node.Unit.Filepath] = append(fileNodes[node.Unit.Filepath], node)
@@ -285,6 +284,68 @@ func isExported(name string) bool {
 	return name[0] >= 'A' && name[0] <= 'Z'
 }
 
+// isDocRelevantNode keeps documentation scope focused while still capturing
+// internal changes that are connected to public symbols.
+func (e *Engine) isDocRelevantNode(id string, node *graph.Node) bool {
+	if node == nil || node.Unit == nil {
+		return false
+	}
+	if isExported(node.Unit.Name) {
+		return true
+	}
+	return e.reachesExportedSymbol(id, 2)
+}
+
+func (e *Engine) reachesExportedSymbol(startID string, maxDepth int) bool {
+	if maxDepth <= 0 || e.graph == nil {
+		return false
+	}
+	type qItem struct {
+		id    string
+		depth int
+	}
+	queue := []qItem{{id: startID, depth: 0}}
+	visited := map[string]bool{startID: true}
+
+	for len(queue) > 0 {
+		curr := queue[0]
+		queue = queue[1:]
+
+		if curr.depth > 0 {
+			if n, ok := e.graph.Nodes[curr.id]; ok && n != nil && n.Unit != nil && isExported(n.Unit.Name) {
+				return true
+			}
+		}
+		if curr.depth >= maxDepth {
+			continue
+		}
+
+		for _, dep := range e.graph.GetDependencies(curr.id) {
+			if dep == nil || dep.Unit == nil {
+				continue
+			}
+			nextID := dep.Unit.ID
+			if visited[nextID] {
+				continue
+			}
+			visited[nextID] = true
+			queue = append(queue, qItem{id: nextID, depth: curr.depth + 1})
+		}
+		for _, dep := range e.graph.GetDependents(curr.id) {
+			if dep == nil || dep.Unit == nil {
+				continue
+			}
+			nextID := dep.Unit.ID
+			if visited[nextID] {
+				continue
+			}
+			visited[nextID] = true
+			queue = append(queue, qItem{id: nextID, depth: curr.depth + 1})
+		}
+	}
+	return false
+}
+
 // GetNodeByID retrieves a single graph node for a given ID.
 func (e *Engine) GetNodeByID(id string) (*graph.Node, bool) {
 	node, ok := e.graph.Nodes[id]
@@ -325,7 +386,10 @@ func (e *Engine) CreateChunk(id string, node *graph.Node) SearchChunk {
 	return chunk
 }
 
-func (e *Engine) getConciseSignature(u *extractor.CodeUnit) string {
+func (e *Engine) getConciseSignature(u *graph.Symbol) string {
+	if u != nil && strings.TrimSpace(u.Metadata.Signature) != "" {
+		return strings.TrimSpace(u.Metadata.Signature)
+	}
 	lines := strings.Split(u.Content, "\n")
 	if len(lines) > 0 {
 		for _, line := range lines {

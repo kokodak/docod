@@ -10,7 +10,6 @@ import (
 	"math"
 	"strings"
 
-	"docod/internal/extractor"
 	"docod/internal/graph"
 	"docod/internal/knowledge"
 
@@ -86,7 +85,7 @@ func (s *SQLiteStore) initSchema() error {
 
 func (s *SQLiteStore) SaveNode(ctx context.Context, node *graph.Node) error {
 	u := node.Unit
-	details, _ := json.Marshal(u.Details)
+	details, _ := json.Marshal(u.Metadata)
 
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO nodes (id, name, package, unit_type, filepath, start_line, end_line, content, content_hash, description, details)
@@ -137,7 +136,7 @@ func (s *SQLiteStore) SaveGraph(ctx context.Context, g *graph.Graph) error {
 
 	for _, node := range g.Nodes {
 		u := node.Unit
-		details, _ := json.Marshal(u.Details)
+		details, _ := json.Marshal(u.Metadata)
 		if _, err := stmt.Exec(u.ID, u.Name, u.Package, u.UnitType, u.Filepath, u.StartLine, u.EndLine, u.Content, u.ContentHash, u.Description, details); err != nil {
 			return err
 		}
@@ -201,13 +200,13 @@ func (s *SQLiteStore) LoadGraph(ctx context.Context) (*graph.Graph, error) {
 	defer rows.Close()
 
 	for rows.Next() {
-		var u extractor.CodeUnit
+		var u graph.Symbol
 		var details []byte
 		if err := rows.Scan(&u.ID, &u.Name, &u.Package, &u.UnitType, &u.Filepath, &u.StartLine, &u.EndLine, &u.Content, &u.ContentHash, &u.Description, &details); err != nil {
 			return nil, fmt.Errorf("failed to scan node: %w", err)
 		}
 		if len(details) > 0 {
-			_ = json.Unmarshal(details, &u.Details)
+			_ = json.Unmarshal(details, &u.Metadata)
 		}
 		g.Nodes[u.ID] = &graph.Node{Unit: &u}
 	}
@@ -236,13 +235,13 @@ func (s *SQLiteStore) LoadGraph(ctx context.Context) (*graph.Graph, error) {
 func (s *SQLiteStore) GetNode(ctx context.Context, id string) (*graph.Node, error) {
 	row := s.db.QueryRowContext(ctx, "SELECT id, name, package, unit_type, filepath, start_line, end_line, content, content_hash, description, details FROM nodes WHERE id = ?", id)
 
-	var u extractor.CodeUnit
+	var u graph.Symbol
 	var details []byte
 	if err := row.Scan(&u.ID, &u.Name, &u.Package, &u.UnitType, &u.Filepath, &u.StartLine, &u.EndLine, &u.Content, &u.ContentHash, &u.Description, &details); err != nil {
 		return nil, err
 	}
 	if len(details) > 0 {
-		_ = json.Unmarshal(details, &u.Details)
+		_ = json.Unmarshal(details, &u.Metadata)
 	}
 
 	return &graph.Node{Unit: &u}, nil
@@ -257,13 +256,13 @@ func (s *SQLiteStore) FindNodesByFile(ctx context.Context, filepath string) ([]*
 
 	var nodes []*graph.Node
 	for rows.Next() {
-		var u extractor.CodeUnit
+		var u graph.Symbol
 		var details []byte
 		if err := rows.Scan(&u.ID, &u.Name, &u.Package, &u.UnitType, &u.Filepath, &u.StartLine, &u.EndLine, &u.Content, &u.ContentHash, &u.Description, &details); err != nil {
 			return nil, err
 		}
 		if len(details) > 0 {
-			_ = json.Unmarshal(details, &u.Details)
+			_ = json.Unmarshal(details, &u.Metadata)
 		}
 		nodes = append(nodes, &graph.Node{Unit: &u})
 	}

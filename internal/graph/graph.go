@@ -1,26 +1,38 @@
 package graph
 
-import (
-	"docod/internal/extractor"
-	"strings"
-)
+import "strings"
 
 // Node represents a vertex in the dependency graph.
 type Node struct {
-	Unit *extractor.CodeUnit
+	Unit *Symbol
 }
 
 // Edge represents a directed relationship between two nodes.
 type Edge struct {
-	From string // Source CodeUnit ID
-	To   string // Target CodeUnit ID
-	Kind string // Relationship type
+	From       string       `json:"from"`                 // Source CodeUnit ID
+	To         string       `json:"to"`                   // Target CodeUnit ID
+	Kind       RelationKind `json:"kind"`                 // Relationship type
+	Resolver   string       `json:"resolver,omitempty"`   // e.g., "types", "ast_heuristic"
+	Confidence float64      `json:"confidence,omitempty"` // 0.0 ~ 1.0
+	Evidence   Evidence     `json:"evidence,omitempty"`
+}
+
+// UnresolvedRelation tracks relation candidates that could not be linked to graph nodes.
+type UnresolvedRelation struct {
+	From       string           `json:"from"`
+	Target     string           `json:"target"`
+	Kind       RelationKind     `json:"kind"`
+	Reason     UnresolvedReason `json:"reason,omitempty"`
+	Resolver   string           `json:"resolver,omitempty"`
+	Confidence float64          `json:"confidence,omitempty"`
+	Evidence   Evidence         `json:"evidence,omitempty"`
 }
 
 // Graph manages nodes and their relationships.
 type Graph struct {
-	Nodes map[string]*Node
-	Edges []Edge
+	Nodes      map[string]*Node
+	Edges      []Edge
+	Unresolved []UnresolvedRelation
 
 	// Index for faster lookup: Name -> []ID
 	// Useful for resolving name-based relations to actual IDs.
@@ -30,14 +42,15 @@ type Graph struct {
 // NewGraph creates an empty graph.
 func NewGraph() *Graph {
 	return &Graph{
-		Nodes:     make(map[string]*Node),
-		Edges:     []Edge{},
-		nameIndex: make(map[string][]string),
+		Nodes:      make(map[string]*Node),
+		Edges:      []Edge{},
+		Unresolved: []UnresolvedRelation{},
+		nameIndex:  make(map[string][]string),
 	}
 }
 
-// AddUnit adds a CodeUnit as a node and indexes it.
-func (g *Graph) AddUnit(unit *extractor.CodeUnit) {
+// AddSymbol adds a symbol as a node and indexes it.
+func (g *Graph) AddSymbol(unit *Symbol) {
 	if unit == nil {
 		return
 	}
@@ -54,7 +67,7 @@ func (g *Graph) RebuildIndices() {
 	}
 }
 
-func (g *Graph) addToIndex(unit *extractor.CodeUnit) {
+func (g *Graph) addToIndex(unit *Symbol) {
 	// Simple index: Name -> ID
 	g.nameIndex[unit.Name] = append(g.nameIndex[unit.Name], unit.ID)
 
@@ -67,16 +80,32 @@ func (g *Graph) addToIndex(unit *extractor.CodeUnit) {
 
 // LinkRelations attempts to resolve all name-based relations to actual node IDs.
 func (g *Graph) LinkRelations() {
-	g.Edges = []Edge{} // Reset edges
+	g.Edges = []Edge{}                    // Reset edges
+	g.Unresolved = []UnresolvedRelation{} // Reset unresolved candidates
 
 	for sourceID, node := range g.Nodes {
 		for _, rel := range node.Unit.Relations {
 			targets := g.resolveTarget(rel.Target, node.Unit.Package)
+			if len(targets) == 0 {
+				g.Unresolved = append(g.Unresolved, UnresolvedRelation{
+					From:       sourceID,
+					Target:     rel.Target,
+					Kind:       rel.Kind,
+					Reason:     ReasonNoCandidate,
+					Resolver:   rel.Resolver,
+					Confidence: rel.Confidence,
+					Evidence:   rel.Evidence,
+				})
+				continue
+			}
 			for _, targetID := range targets {
 				g.Edges = append(g.Edges, Edge{
-					From: sourceID,
-					To:   targetID,
-					Kind: rel.Kind,
+					From:       sourceID,
+					To:         targetID,
+					Kind:       rel.Kind,
+					Resolver:   rel.Resolver,
+					Confidence: rel.Confidence,
+					Evidence:   rel.Evidence,
 				})
 			}
 		}

@@ -22,8 +22,18 @@ type CodeUnit struct {
 
 // Relation defines a directed link to another symbol.
 type Relation struct {
-	Target string `json:"target"` // Target symbol name or ID
-	Kind   string `json:"kind"`   // e.g., "calls", "implements", "embeds", "uses_type"
+	Target     string   `json:"target"`               // Target symbol name or ID
+	Kind       string   `json:"kind"`                 // e.g., "calls", "implements", "embeds", "uses_type"
+	Resolver   string   `json:"resolver,omitempty"`   // e.g., "types", "ast_heuristic"
+	Confidence float64  `json:"confidence,omitempty"` // 0.0 ~ 1.0
+	Evidence   Evidence `json:"evidence,omitempty"`
+}
+
+// Evidence captures source location for relation extraction.
+type Evidence struct {
+	Filepath  string `json:"filepath,omitempty"`
+	StartLine int    `json:"start_line,omitempty"`
+	EndLine   int    `json:"end_line,omitempty"`
 }
 
 // LanguageExtractor defines the interface that each language parser must implement.
