@@ -113,9 +113,10 @@ func (s *IncrementalSync) graphUpdateStage(ctx context.Context, store *storage.S
 		if err != nil {
 			return nil, fmt.Errorf("full sync graph build failed: %w", err)
 		}
-		s.runTypeResolverStage(g)
+		s.runResolverChainStage(g)
 		fmt.Printf("📊 Graph Update: full rebuild completed in %v. Nodes=%d\n", time.Since(start), len(g.Nodes))
 		fmt.Printf("  -> Linked edges: %d, unresolved relations: %d\n", len(g.Edges), len(g.Unresolved))
+		s.printUnresolvedReasonMetrics(g)
 		return &graphUpdateResult{
 			Graph:        g,
 			UpdatedFiles: collectGraphFiles(g),
@@ -167,9 +168,9 @@ func (s *IncrementalSync) graphUpdateStage(ctx context.Context, store *storage.S
 
 	fmt.Printf("📊 Graph Update: %d nodes removed, %d nodes added/updated.\n", nodesRemoved, nodesUpdated)
 	g.RebuildIndices()
-	g.LinkRelations()
-	s.runTypeResolverStage(g)
+	s.runResolverChainStage(g)
 	fmt.Printf("  -> Linked edges: %d, unresolved relations: %d\n", len(g.Edges), len(g.Unresolved))
+	s.printUnresolvedReasonMetrics(g)
 	updatedFiles, deletedFiles := splitUpdatedDeleted(plan.Changes)
 
 	return &graphUpdateResult{
@@ -179,18 +180,38 @@ func (s *IncrementalSync) graphUpdateStage(ctx context.Context, store *storage.S
 	}, nil
 }
 
-func (s *IncrementalSync) runTypeResolverStage(g *graph.Graph) {
-	if g == nil || len(g.Unresolved) == 0 {
+func (s *IncrementalSync) runResolverChainStage(g *graph.Graph) {
+	if g == nil {
 		return
 	}
 
-	r := resolver.NewGoTypesResolver()
-	stats, err := r.ResolveGraphRelations(g)
-	if err != nil {
-		log.Printf("Warning: types resolver failed: %v", err)
+	chain := resolver.NewDefaultChain()
+	results := chain.Run(g)
+	for _, r := range results {
+		if r.Err != nil {
+			log.Printf("Warning: %s resolver failed: %v", r.Resolver, r.Err)
+			break
+		}
+		fmt.Printf("  -> Resolver[%s]: attempted=%d resolved=%d skipped=%d unresolved=%d->%d edges=%d\n",
+			r.Resolver,
+			r.Stats.Attempted,
+			r.Stats.Resolved,
+			r.Stats.Skipped,
+			r.UnresolvedBefore,
+			r.UnresolvedAfter,
+			r.EdgeCount,
+		)
+	}
+}
+
+func (s *IncrementalSync) printUnresolvedReasonMetrics(g *graph.Graph) {
+	if g == nil || len(g.Unresolved) == 0 {
 		return
 	}
-	fmt.Printf("  -> Types resolver: attempted=%d resolved=%d skipped=%d\n", stats.Attempted, stats.Resolved, stats.Skipped)
+	counts := g.UnresolvedReasonCounts()
+	for reason, n := range counts {
+		fmt.Printf("     - unresolved[%s]=%d\n", reason, n)
+	}
 }
 
 func (s *IncrementalSync) impactAnalysisStage(g *graph.Graph, changes []git.ChangedFile) {

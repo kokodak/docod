@@ -71,3 +71,23 @@ func TestGraph_LinkRelations(t *testing.T) {
 		assert.Equal(t, "FuncA", dependents[0].Unit.Name)
 	})
 }
+
+func TestGraph_UnresolvedReasonMetrics(t *testing.T) {
+	g := NewGraph()
+	unitA := &extractor.CodeUnit{
+		ID:      "file1:FuncA:1",
+		Name:    "FuncA",
+		Package: "pkg1",
+		Relations: []extractor.Relation{
+			{Target: "MissingFunc", Kind: "calls"},
+		},
+	}
+	g.AddUnit(unitA)
+	g.LinkRelations()
+
+	assert.Len(t, g.Unresolved, 1)
+	assert.Equal(t, ReasonNoCandidate, g.Unresolved[0].Reason)
+
+	counts := g.UnresolvedReasonCounts()
+	assert.Equal(t, 1, counts[ReasonNoCandidate])
+}

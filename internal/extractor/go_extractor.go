@@ -53,7 +53,7 @@ func (g *GoExtractor) ExtractUnit(captureName string, node *sitter.Node, sourceC
 				unit.Relations[i].Resolver = "ast_heuristic"
 			}
 			if unit.Relations[i].Confidence <= 0 {
-				unit.Relations[i].Confidence = 0.6
+				unit.Relations[i].Confidence = CalibrateRelationConfidence(unit.Relations[i].Kind, unit.Relations[i].Resolver, unit.Relations[i].Evidence)
 			}
 			if unit.Relations[i].Evidence.Filepath == "" {
 				unit.Relations[i].Evidence.Filepath = filepath
@@ -202,10 +202,14 @@ func (g *GoExtractor) extractTypeUnit(node *sitter.Node, sourceCode []byte, file
 				}
 				if isUserDefinedType(field.Type) {
 					relations = append(relations, Relation{
-						Target:     field.Type,
-						Kind:       kind,
-						Resolver:   "ast_heuristic",
-						Confidence: 0.6,
+						Target:   field.Type,
+						Kind:     kind,
+						Resolver: "ast_heuristic",
+						Confidence: CalibrateRelationConfidence(kind, "ast_heuristic", Evidence{
+							Filepath:  filepath,
+							StartLine: int(parentNode.StartPoint().Row + 1),
+							EndLine:   int(parentNode.EndPoint().Row + 1),
+						}),
 						Evidence: Evidence{
 							Filepath:  filepath,
 							StartLine: int(parentNode.StartPoint().Row + 1),
@@ -221,10 +225,14 @@ func (g *GoExtractor) extractTypeUnit(node *sitter.Node, sourceCode []byte, file
 			for _, method := range interfaceDetails.Methods {
 				if !strings.Contains(method.Signature, "(") && isUserDefinedType(method.Signature) {
 					relations = append(relations, Relation{
-						Target:     method.Signature,
-						Kind:       "embeds",
-						Resolver:   "ast_heuristic",
-						Confidence: 0.55,
+						Target:   method.Signature,
+						Kind:     "embeds",
+						Resolver: "ast_heuristic",
+						Confidence: CalibrateRelationConfidence("embeds", "ast_heuristic", Evidence{
+							Filepath:  filepath,
+							StartLine: int(parentNode.StartPoint().Row + 1),
+							EndLine:   int(parentNode.EndPoint().Row + 1),
+						}),
 						Evidence: Evidence{
 							Filepath:  filepath,
 							StartLine: int(parentNode.StartPoint().Row + 1),
@@ -378,10 +386,14 @@ func (g *GoExtractor) extractFunctionUnit(node *sitter.Node, sourceCode []byte, 
 			recvType := extractBaseType(details.Receiver)
 			if recvType != "" {
 				relations = append(relations, Relation{
-					Target:     recvType,
-					Kind:       "belongs_to",
-					Resolver:   "ast_heuristic",
-					Confidence: 0.8,
+					Target:   recvType,
+					Kind:     "belongs_to",
+					Resolver: "ast_heuristic",
+					Confidence: CalibrateRelationConfidence("belongs_to", "ast_heuristic", Evidence{
+						Filepath:  filepath,
+						StartLine: int(node.StartPoint().Row + 1),
+						EndLine:   int(node.EndPoint().Row + 1),
+					}),
 					Evidence: Evidence{
 						Filepath:  filepath,
 						StartLine: int(node.StartPoint().Row + 1),
@@ -398,10 +410,14 @@ func (g *GoExtractor) extractFunctionUnit(node *sitter.Node, sourceCode []byte, 
 		for _, p := range details.Parameters {
 			if isUserDefinedType(p.Type) {
 				relations = append(relations, Relation{
-					Target:     p.Type,
-					Kind:       "uses_type",
-					Resolver:   "ast_heuristic",
-					Confidence: 0.65,
+					Target:   p.Type,
+					Kind:     "uses_type",
+					Resolver: "ast_heuristic",
+					Confidence: CalibrateRelationConfidence("uses_type", "ast_heuristic", Evidence{
+						Filepath:  filepath,
+						StartLine: int(node.StartPoint().Row + 1),
+						EndLine:   int(node.EndPoint().Row + 1),
+					}),
 					Evidence: Evidence{
 						Filepath:  filepath,
 						StartLine: int(node.StartPoint().Row + 1),
@@ -416,10 +432,14 @@ func (g *GoExtractor) extractFunctionUnit(node *sitter.Node, sourceCode []byte, 
 		for _, r := range details.Returns {
 			if isUserDefinedType(r.Type) {
 				relations = append(relations, Relation{
-					Target:     r.Type,
-					Kind:       "uses_type",
-					Resolver:   "ast_heuristic",
-					Confidence: 0.65,
+					Target:   r.Type,
+					Kind:     "uses_type",
+					Resolver: "ast_heuristic",
+					Confidence: CalibrateRelationConfidence("uses_type", "ast_heuristic", Evidence{
+						Filepath:  filepath,
+						StartLine: int(node.StartPoint().Row + 1),
+						EndLine:   int(node.EndPoint().Row + 1),
+					}),
 					Evidence: Evidence{
 						Filepath:  filepath,
 						StartLine: int(node.StartPoint().Row + 1),
@@ -476,10 +496,13 @@ func (g *GoExtractor) extractBodyRelations(bodyNode *sitter.Node, sourceCode []b
 		if target != "" && !seen[target] {
 			if !isNoise(target) {
 				relations = append(relations, Relation{
-					Target:     target,
-					Kind:       kind,
-					Resolver:   "ast_heuristic",
-					Confidence: 0.7,
+					Target:   target,
+					Kind:     kind,
+					Resolver: "ast_heuristic",
+					Confidence: CalibrateRelationConfidence(kind, "ast_heuristic", Evidence{
+						StartLine: int(n.StartPoint().Row + 1),
+						EndLine:   int(n.EndPoint().Row + 1),
+					}),
 					Evidence: Evidence{
 						StartLine: int(n.StartPoint().Row + 1),
 						EndLine:   int(n.EndPoint().Row + 1),

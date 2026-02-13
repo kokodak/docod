@@ -28,6 +28,19 @@ func NewGoTypesResolver() *GoTypesResolver {
 	return &GoTypesResolver{}
 }
 
+func (r *GoTypesResolver) Name() string {
+	return "types"
+}
+
+func (r *GoTypesResolver) Resolve(g *graph.Graph) (ResolveStats, error) {
+	stats, err := r.ResolveGraphRelations(g)
+	return ResolveStats{
+		Attempted: stats.Attempted,
+		Resolved:  stats.Resolved,
+		Skipped:   stats.Skipped,
+	}, err
+}
+
 func (r *GoTypesResolver) ResolveGraphRelations(g *graph.Graph) (TypeResolutionStats, error) {
 	stats := TypeResolutionStats{}
 	if g == nil || len(g.Unresolved) == 0 {
