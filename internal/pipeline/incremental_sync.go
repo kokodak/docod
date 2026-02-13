@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -17,7 +19,9 @@ import (
 	"docod/internal/graph"
 	"docod/internal/index"
 	"docod/internal/knowledge"
+	"docod/internal/planner"
 	"docod/internal/resolver"
+	"docod/internal/retrieval"
 	"docod/internal/storage"
 )
 
@@ -75,7 +79,12 @@ func (s *IncrementalSync) Run(ctx context.Context, force bool) error {
 		s.impactAnalysisStage(graphResult.Graph, plan.Changes)
 	}
 
-	if err := s.documentationStage(ctx, store, graphResult, plan.FullResync); err != nil {
+	var docPlan *planner.DocUpdatePlan
+	if len(plan.Changes) > 0 {
+		docPlan = s.retrievalPlanningStage(graphResult.Graph, plan.Changes)
+	}
+
+	if err := s.documentationStage(ctx, store, graphResult, plan.FullResync, docPlan); err != nil {
 		return err
 	}
 
@@ -227,7 +236,52 @@ func (s *IncrementalSync) impactAnalysisStage(g *graph.Graph, changes []git.Chan
 	fmt.Printf("  -> %d symbols indirectly affected (callers)\n", len(report.IndirectlyAffected))
 }
 
-func (s *IncrementalSync) documentationStage(ctx context.Context, store *storage.SQLiteStore, graphResult *graphUpdateResult, fullResync bool) error {
+func (s *IncrementalSync) retrievalPlanningStage(g *graph.Graph, changes []git.ChangedFile) *planner.DocUpdatePlan {
+	fmt.Println("🧩 Extracting retrieval subgraph...")
+	sg := retrieval.ExtractFromChanges(g, changes, retrieval.DefaultConfig())
+	fmt.Printf("  -> Retrieval seeds=%d nodes=%d edges=%d files=%d\n", len(sg.SeedIDs), len(sg.NodeIDs), len(sg.Edges), len(sg.UpdatedFiles))
+
+	model, err := s.loadDocModelForPlanning()
+	if err != nil {
+		fmt.Printf("  -> Doc planning skipped: %v\n", err)
+		return planner.BuildDocUpdatePlan(nil, sg)
+	}
+
+	plan := planner.BuildDocUpdatePlan(model, sg)
+	if len(plan.AffectedSections) == 0 {
+		fmt.Printf("  -> No section-source match. unmatched_symbols=%d\n", len(plan.UnmatchedSymbols))
+		return plan
+	}
+
+	top := plan.AffectedSections
+	if len(top) > 3 {
+		top = top[:3]
+	}
+	for _, sec := range top {
+		fmt.Printf("  -> Section[%s] score=%.2f conf=%.2f reasons=%s\n", sec.SectionID, sec.Score, sec.Confidence, strings.Join(sec.Reasons, ","))
+	}
+	fmt.Printf("  -> Planned sections=%d unmatched_symbols=%d\n", len(plan.AffectedSections), len(plan.UnmatchedSymbols))
+	return plan
+}
+
+func (s *IncrementalSync) loadDocModelForPlanning() (*generator.DocModel, error) {
+	modelPath := filepath.Join(filepath.Dir(s.DocPath), "doc_model.json")
+	model, err := generator.LoadDocModel(modelPath)
+	if err == nil {
+		return model, nil
+	}
+	if !os.IsNotExist(err) {
+		return nil, err
+	}
+
+	docBytes, readErr := os.ReadFile(s.DocPath)
+	if readErr != nil {
+		return nil, readErr
+	}
+	return generator.BuildModelFromMarkdown(string(docBytes)), nil
+}
+
+func (s *IncrementalSync) documentationStage(ctx context.Context, store *storage.SQLiteStore, graphResult *graphUpdateResult, fullResync bool, docPlan *planner.DocUpdatePlan) error {
 	fmt.Println("✍️  Regenerating documentation...")
 	engine, summarizer, err := initEngine(ctx, graphResult.Graph, store)
 	if err != nil {
@@ -242,15 +296,32 @@ func (s *IncrementalSync) documentationStage(ctx context.Context, store *storage
 		}
 	} else {
 		fmt.Println("🧠 Updating embeddings incrementally...")
-		if err := engine.IndexIncremental(ctx, graphResult.UpdatedFiles, graphResult.DeletedFiles); err != nil {
+		if err := engine.IndexIncrementalWithOptions(ctx, graphResult.UpdatedFiles, graphResult.DeletedFiles, knowledge.IndexingOptions{
+			MaxChunksPerRun: s.maxEmbedChunksPerRun(),
+		}); err != nil {
 			log.Printf("Warning: Embedding update failed: %v", err)
 		}
+	}
+
+	targetFiles := graphResult.UpdatedFiles
+	if docPlan != nil && len(docPlan.TriggeredFiles) > 0 {
+		targetFiles = dedupeSorted(targetFiles, docPlan.TriggeredFiles)
+		fmt.Printf("  -> Doc update file scope: %d files (graph+retrieval merged)\n", len(targetFiles))
 	}
 
 	docUpdater := generator.NewDocUpdater(engine, summarizer)
 	if _, err := os.Stat(s.DocPath); err == nil {
 		fmt.Println("📝 Updating existing documentation sections...")
-		if err := docUpdater.UpdateDocs(ctx, s.DocPath, graphResult.UpdatedFiles); err != nil {
+		var updatePlan *generator.UpdatePlan
+		if docPlan != nil && len(docPlan.AffectedSections) > 0 {
+			updatePlan = &generator.UpdatePlan{
+				PreferredSectionIDs: sectionIDsByImpact(docPlan),
+				StrictSectionScope:  false,
+				SectionConfidence:   sectionConfidenceByImpact(docPlan),
+				MinConfidenceForLLM: s.minConfidenceForLLM(),
+			}
+		}
+		if err := docUpdater.UpdateDocsWithPlan(ctx, s.DocPath, targetFiles, updatePlan); err != nil {
 			log.Printf("Warning: Failed to update docs incrementally, falling back to full gen: %v", err)
 		} else {
 			fmt.Println("✅ Documentation updated incrementally in 'docs/'.")
@@ -325,4 +396,77 @@ func collectGraphFiles(g *graph.Graph) []string {
 		files = append(files, p)
 	}
 	return files
+}
+
+func dedupeSorted(groups ...[]string) []string {
+	seen := make(map[string]bool)
+	out := make([]string, 0)
+	for _, group := range groups {
+		for _, item := range group {
+			if item == "" || seen[item] {
+				continue
+			}
+			seen[item] = true
+			out = append(out, item)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+func sectionIDsByImpact(plan *planner.DocUpdatePlan) []string {
+	if plan == nil || len(plan.AffectedSections) == 0 {
+		return nil
+	}
+	seen := make(map[string]bool)
+	ids := make([]string, 0, len(plan.AffectedSections))
+	for _, impact := range plan.AffectedSections {
+		if impact.SectionID == "" || seen[impact.SectionID] {
+			continue
+		}
+		seen[impact.SectionID] = true
+		ids = append(ids, impact.SectionID)
+	}
+	return ids
+}
+
+func sectionConfidenceByImpact(plan *planner.DocUpdatePlan) map[string]float64 {
+	if plan == nil || len(plan.AffectedSections) == 0 {
+		return nil
+	}
+	out := make(map[string]float64, len(plan.AffectedSections))
+	for _, impact := range plan.AffectedSections {
+		if impact.SectionID == "" {
+			continue
+		}
+		out[impact.SectionID] = impact.Confidence
+	}
+	return out
+}
+
+func (s *IncrementalSync) minConfidenceForLLM() float64 {
+	cfg, err := config.LoadConfig("config.yaml")
+	if err != nil || cfg == nil {
+		return 0.60
+	}
+	value := cfg.Docs.MinConfidenceForLLM
+	if value <= 0 {
+		return 0.60
+	}
+	if value > 1 {
+		return 1
+	}
+	return value
+}
+
+func (s *IncrementalSync) maxEmbedChunksPerRun() int {
+	cfg, err := config.LoadConfig("config.yaml")
+	if err != nil || cfg == nil {
+		return 80
+	}
+	value := cfg.Docs.MaxEmbedChunksPerRun
+	if value < 0 {
+		return 0
+	}
+	return value
 }

@@ -98,3 +98,33 @@ func TestEngine_CreateChunk(t *testing.T) {
 		assert.Contains(t, chunk.UsedBy, "ProcessOrder")
 	})
 }
+
+func TestEngine_IndexIncrementalWithOptions_BudgetLimit(t *testing.T) {
+	g := graph.NewGraph()
+	g.AddUnit(&extractor.CodeUnit{
+		ID:       "id1",
+		Name:     "Alpha",
+		UnitType: "function",
+		Filepath: "pkg/a.go",
+	})
+	g.AddUnit(&extractor.CodeUnit{
+		ID:       "id2",
+		Name:     "Beta",
+		UnitType: "function",
+		Filepath: "pkg/b.go",
+	})
+	g.LinkRelations()
+
+	embedder := &mockEmbedder{dim: 8}
+	index := NewMemoryIndex(g)
+	engine := NewEngine(g, embedder, index)
+
+	err := engine.IndexIncrementalWithOptions(
+		context.Background(),
+		[]string{"pkg/a.go", "pkg/b.go"},
+		nil,
+		IndexingOptions{MaxChunksPerRun: 1},
+	)
+	require.NoError(t, err)
+	assert.Len(t, index.items, 1)
+}

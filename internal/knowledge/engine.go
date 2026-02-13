@@ -5,6 +5,7 @@ import (
 	"docod/internal/graph"
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -46,6 +47,10 @@ type Engine struct {
 	index    Indexer
 }
 
+type IndexingOptions struct {
+	MaxChunksPerRun int
+}
+
 // NewEngine creates a new knowledge engine with optional embedder and indexer.
 func NewEngine(g *graph.Graph, em Embedder, idx Indexer) *Engine {
 	return &Engine{
@@ -75,6 +80,11 @@ func (e *Engine) IndexAll(ctx context.Context) error {
 
 // IndexIncremental updates embeddings only for the specified files and removes deleted ones.
 func (e *Engine) IndexIncremental(ctx context.Context, updatedFiles []string, deletedFiles []string) error {
+	return e.IndexIncrementalWithOptions(ctx, updatedFiles, deletedFiles, IndexingOptions{})
+}
+
+// IndexIncrementalWithOptions updates embeddings incrementally with runtime budget controls.
+func (e *Engine) IndexIncrementalWithOptions(ctx context.Context, updatedFiles []string, deletedFiles []string, opts IndexingOptions) error {
 	if e.embedder == nil || e.index == nil {
 		return fmt.Errorf("embedder or indexer not initialized")
 	}
@@ -90,6 +100,7 @@ func (e *Engine) IndexIncremental(ctx context.Context, updatedFiles []string, de
 	// 2. Process updated files
 	if len(updatedFiles) > 0 {
 		chunks := e.PrepareChunksForFiles(updatedFiles)
+		chunks = limitChunksByBudget(chunks, opts.MaxChunksPerRun)
 		if len(chunks) > 0 {
 			if err := e.embedChunks(ctx, chunks); err != nil {
 				return fmt.Errorf("failed to embed updated chunks: %w", err)
@@ -98,6 +109,20 @@ func (e *Engine) IndexIncremental(ctx context.Context, updatedFiles []string, de
 	}
 
 	return nil
+}
+
+func limitChunksByBudget(chunks []SearchChunk, max int) []SearchChunk {
+	if max <= 0 || len(chunks) <= max {
+		return chunks
+	}
+	ordered := append([]SearchChunk(nil), chunks...)
+	sort.Slice(ordered, func(i, j int) bool {
+		if ordered[i].ID == ordered[j].ID {
+			return ordered[i].ContentHash < ordered[j].ContentHash
+		}
+		return ordered[i].ID < ordered[j].ID
+	})
+	return ordered[:max]
 }
 
 func (e *Engine) embedChunks(ctx context.Context, chunks []SearchChunk) error {

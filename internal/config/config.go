@@ -21,10 +21,12 @@ type Config struct {
 		Dimension    int    `yaml:"dimension"`
 	} `yaml:"ai"`
 	Docs struct {
-		MaxLLMSections      int  `yaml:"max_llm_sections"`
-		EnableSemanticMatch bool `yaml:"enable_semantic_match"`
-		EnableLLMRouter     bool `yaml:"enable_llm_router"`
-		MaxLLMRoutes        int  `yaml:"max_llm_routes"`
+		MaxLLMSections       int     `yaml:"max_llm_sections"`
+		EnableSemanticMatch  bool    `yaml:"enable_semantic_match"`
+		EnableLLMRouter      bool    `yaml:"enable_llm_router"`
+		MaxLLMRoutes         int     `yaml:"max_llm_routes"`
+		MinConfidenceForLLM  float64 `yaml:"min_confidence_for_llm"`
+		MaxEmbedChunksPerRun int     `yaml:"max_embed_chunks_per_run"`
 	} `yaml:"docs"`
 }
 
@@ -66,6 +68,16 @@ func LoadConfig(path string) (*Config, error) {
 	if v := os.Getenv("DOCOD_MAX_LLM_ROUTES"); v != "" {
 		if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
 			cfg.Docs.MaxLLMRoutes = n
+		}
+	}
+	if v := os.Getenv("DOCOD_MIN_CONFIDENCE_FOR_LLM"); v != "" {
+		if f, err := strconv.ParseFloat(strings.TrimSpace(v), 64); err == nil {
+			cfg.Docs.MinConfidenceForLLM = f
+		}
+	}
+	if v := os.Getenv("DOCOD_MAX_EMBED_CHUNKS_PER_RUN"); v != "" {
+		if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
+			cfg.Docs.MaxEmbedChunksPerRun = n
 		}
 	}
 

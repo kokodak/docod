@@ -5,6 +5,7 @@ import (
 	"docod/internal/config"
 	"docod/internal/knowledge"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -24,6 +25,14 @@ type updaterOptions struct {
 	maxLLMRoutes        int
 }
 
+// UpdatePlan controls section-level update behavior for incremental doc patching.
+type UpdatePlan struct {
+	PreferredSectionIDs []string
+	StrictSectionScope  bool
+	SectionConfidence   map[string]float64
+	MinConfidenceForLLM float64
+}
+
 func NewDocUpdater(e *knowledge.Engine, s knowledge.Summarizer) *DocUpdater {
 	return &DocUpdater{
 		engine:     e,
@@ -33,6 +42,11 @@ func NewDocUpdater(e *knowledge.Engine, s knowledge.Summarizer) *DocUpdater {
 
 // UpdateDocs incrementally updates the JSON doc model and re-renders Markdown.
 func (u *DocUpdater) UpdateDocs(ctx context.Context, docPath string, changedFilePaths []string) error {
+	return u.UpdateDocsWithPlan(ctx, docPath, changedFilePaths, nil)
+}
+
+// UpdateDocsWithPlan incrementally updates docs with optional section-priority guidance.
+func (u *DocUpdater) UpdateDocsWithPlan(ctx context.Context, docPath string, changedFilePaths []string, plan *UpdatePlan) error {
 	opts := resolveUpdaterOptions()
 	modelPath := filepath.Join(filepath.Dir(docPath), "doc_model.json")
 
@@ -63,6 +77,15 @@ func (u *DocUpdater) UpdateDocs(ctx context.Context, docPath string, changedFile
 		if !matched {
 			unmatched = append(unmatched, chunk)
 		}
+	}
+
+	// Plan-first routing: if planner provided section priority, route unmatched chunks there first.
+	if plan != nil && len(plan.PreferredSectionIDs) > 0 && len(unmatched) > 0 {
+		routed, still := routeUnmatchedToPreferred(unmatched, plan.PreferredSectionIDs)
+		for secID, chunks := range routed {
+			affected[secID] = append(affected[secID], chunks...)
+		}
+		unmatched = still
 	}
 
 	// Fallback 1: heuristic routing to canonical sections (no embedding cost).
@@ -108,9 +131,13 @@ func (u *DocUpdater) UpdateDocs(ctx context.Context, docPath string, changedFile
 	appliedUpdates := 0
 	maxLLMUpdates := opts.maxLLMSections
 	updateOrder := prioritizedSectionIDs(affected)
+	if plan != nil && len(plan.PreferredSectionIDs) > 0 {
+		updateOrder = mergePreferredSectionOrder(updateOrder, plan.PreferredSectionIDs)
+	}
+	llmApplied := 0
 
 	// Update affected sections.
-	for i, secID := range updateOrder {
+	for _, secID := range updateOrder {
 		triggeringChunks := affected[secID]
 		sec := model.SectionByID(secID)
 		if sec == nil {
@@ -124,12 +151,18 @@ func (u *DocUpdater) UpdateDocs(ctx context.Context, docPath string, changedFile
 			Timestamp: now,
 		}
 
-		// Cost control: only top N affected sections get LLM rewrite.
-		if i >= maxLLMUpdates {
+		// Cost control: update high-confidence sections first with LLM rewrite.
+		shouldRewrite := llmApplied < maxLLMUpdates
+		if shouldRewrite && plan != nil && plan.MinConfidenceForLLM > 0 {
+			secConfidence := resolveSectionConfidence(plan, secID)
+			shouldRewrite = secConfidence >= plan.MinConfidenceForLLM
+		}
+		if !shouldRewrite {
 			sec.Hash = sectionHash(*sec)
 			appliedUpdates++
 			continue
 		}
+		llmApplied++
 
 		updatedContent, err := u.summarizer.UpdateDocSection(ctx, sec.ContentMD, triggeringChunks)
 		if err != nil {
@@ -146,6 +179,9 @@ func (u *DocUpdater) UpdateDocs(ctx context.Context, docPath string, changedFile
 	}
 
 	// Create at most one new section for all unmatched chunks to minimize LLM calls.
+	if plan != nil && plan.StrictSectionScope {
+		unmatched = nil
+	}
 	if len(unmatched) > 0 {
 		batch := unmatched
 		if len(batch) > 8 {
@@ -227,69 +263,63 @@ func (u *DocUpdater) loadOrBootstrapModel(modelPath, docPath string) (*DocModel,
 
 func (u *DocUpdater) semanticMatchSections(ctx context.Context, model *DocModel, chunks []knowledge.SearchChunk) (map[string][]knowledge.SearchChunk, []knowledge.SearchChunk) {
 	affected := make(map[string][]knowledge.SearchChunk)
-	var unmatched []knowledge.SearchChunk
-
-	if err := u.indexModelSections(ctx, model.Sections); err != nil {
+	if len(model.Sections) == 0 || len(chunks) == 0 || u.engine == nil || u.engine.Embedder() == nil {
 		return affected, chunks
 	}
 
-	for _, chunk := range chunks {
-		q := chunk.Description + "\n" + chunk.Signature
-		vecs, err := u.engine.Embedder().Embed(ctx, []string{q})
-		if err != nil || len(vecs) == 0 {
-			unmatched = append(unmatched, chunk)
-			continue
-		}
-		results, err := u.engine.Indexer().Search(ctx, vecs[0], 3)
-		if err != nil {
-			unmatched = append(unmatched, chunk)
-			continue
-		}
+	sectionTexts := make([]string, 0, len(model.Sections))
+	for _, sec := range model.Sections {
+		sectionTexts = append(sectionTexts, fmt.Sprintf("Documentation Section: %s\nContent: %s", sec.Title, sec.ContentMD))
+	}
+	sectionEmbeddings, err := u.engine.Embedder().Embed(ctx, sectionTexts)
+	if err != nil || len(sectionEmbeddings) != len(model.Sections) {
+		return affected, chunks
+	}
 
-		found := false
-		for _, res := range results {
-			if res.Chunk.UnitType != "doc_section" {
-				continue
+	queryTexts := make([]string, 0, len(chunks))
+	for _, chunk := range chunks {
+		queryTexts = append(queryTexts, chunk.Description+"\n"+chunk.Signature)
+	}
+	queryEmbeddings, err := u.engine.Embedder().Embed(ctx, queryTexts)
+	if err != nil || len(queryEmbeddings) != len(chunks) {
+		return affected, chunks
+	}
+
+	var unmatched []knowledge.SearchChunk
+	for i, qvec := range queryEmbeddings {
+		bestIdx := -1
+		bestScore := float32(-1)
+		for j, svec := range sectionEmbeddings {
+			score := cosineSimilarity32(qvec, svec)
+			if score > bestScore {
+				bestScore = score
+				bestIdx = j
 			}
-			affected[res.Chunk.ID] = append(affected[res.Chunk.ID], chunk)
-			found = true
-			break
 		}
-		if !found {
-			unmatched = append(unmatched, chunk)
+		if bestIdx < 0 || bestScore <= 0 {
+			unmatched = append(unmatched, chunks[i])
+			continue
 		}
+		affected[model.Sections[bestIdx].ID] = append(affected[model.Sections[bestIdx].ID], chunks[i])
 	}
 
 	return affected, unmatched
 }
 
-func (u *DocUpdater) indexModelSections(ctx context.Context, sections []ModelSect) error {
-	texts := make([]string, 0, len(sections))
-	items := make([]knowledge.VectorItem, 0, len(sections))
-
-	for _, sec := range sections {
-		texts = append(texts, fmt.Sprintf("Documentation Section: %s\nContent: %s", sec.Title, sec.ContentMD))
+func cosineSimilarity32(a, b []float32) float32 {
+	if len(a) == 0 || len(a) != len(b) {
+		return 0
 	}
-
-	vectors, err := u.engine.Embedder().Embed(ctx, texts)
-	if err != nil {
-		return err
+	var dot, magA, magB float32
+	for i := range a {
+		dot += a[i] * b[i]
+		magA += a[i] * a[i]
+		magB += b[i] * b[i]
 	}
-
-	for i, sec := range sections {
-		items = append(items, knowledge.VectorItem{
-			Chunk: knowledge.SearchChunk{
-				ID:          sec.ID,
-				Name:        sec.Title,
-				UnitType:    "doc_section",
-				Description: sec.Title,
-				Content:     sec.ContentMD,
-			},
-			Embedding: vectors[i],
-		})
+	if magA == 0 || magB == 0 {
+		return 0
 	}
-
-	return u.engine.Indexer().Add(ctx, items)
+	return dot / (float32(math.Sqrt(float64(magA))) * float32(math.Sqrt(float64(magB))))
 }
 
 func sectionReferencesFile(sec ModelSect, filePath string) bool {
@@ -352,6 +382,74 @@ func prioritizedSectionIDs(affected map[string][]knowledge.SearchChunk) []string
 		return li > lj
 	})
 	return ids
+}
+
+func mergePreferredSectionOrder(baseOrder []string, preferred []string) []string {
+	if len(baseOrder) == 0 {
+		return nil
+	}
+	preferredPos := make(map[string]int, len(preferred))
+	for i, id := range preferred {
+		if id == "" {
+			continue
+		}
+		if _, exists := preferredPos[id]; !exists {
+			preferredPos[id] = i
+		}
+	}
+	ordered := append([]string(nil), baseOrder...)
+	sort.SliceStable(ordered, func(i, j int) bool {
+		pi, iok := preferredPos[ordered[i]]
+		pj, jok := preferredPos[ordered[j]]
+		if iok && jok {
+			return pi < pj
+		}
+		if iok {
+			return true
+		}
+		if jok {
+			return false
+		}
+		return false
+	})
+	return ordered
+}
+
+func routeUnmatchedToPreferred(unmatched []knowledge.SearchChunk, preferred []string) (map[string][]knowledge.SearchChunk, []knowledge.SearchChunk) {
+	routed := make(map[string][]knowledge.SearchChunk)
+	validPreferred := make([]string, 0, len(preferred))
+	for _, id := range preferred {
+		if id == "" {
+			continue
+		}
+		validPreferred = append(validPreferred, id)
+	}
+	if len(validPreferred) == 0 || len(unmatched) == 0 {
+		return routed, unmatched
+	}
+
+	for i, chunk := range unmatched {
+		secID := validPreferred[i%len(validPreferred)]
+		routed[secID] = append(routed[secID], chunk)
+	}
+	return routed, nil
+}
+
+func resolveSectionConfidence(plan *UpdatePlan, sectionID string) float64 {
+	if plan == nil || len(plan.SectionConfidence) == 0 {
+		return 0
+	}
+	value, ok := plan.SectionConfidence[sectionID]
+	if !ok {
+		return 0
+	}
+	if value < 0 {
+		return 0
+	}
+	if value > 1 {
+		return 1
+	}
+	return value
 }
 
 func (u *DocUpdater) llmRouteSections(ctx context.Context, model *DocModel, chunks []knowledge.SearchChunk, routeBudget int) (map[string][]knowledge.SearchChunk, []knowledge.SearchChunk) {

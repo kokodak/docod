@@ -11,3 +11,5 @@ docs:
   enable_semantic_match: false # Enable embedding-based section matching for unmatched changes.
   enable_llm_router: true # Enable ToC-based LLM routing to choose best section for unmatched changes.
   max_llm_routes: 2 # Max unmatched chunks allowed to call ToC LLM routing per sync run.
+  min_confidence_for_llm: 0.6 # Rewrite only sections whose planner confidence meets this threshold (0.0~1.0).
+  max_embed_chunks_per_run: 80 # Upper bound for incremental embedding chunks per run (0 means unlimited).
