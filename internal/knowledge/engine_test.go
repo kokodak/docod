@@ -4,6 +4,7 @@ import (
 	"context"
 	"docod/internal/extractor"
 	"docod/internal/graph"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -42,11 +43,15 @@ func TestEngine_IndexAll(t *testing.T) {
 	err := engine.IndexAll(context.Background())
 	require.NoError(t, err)
 
-	assert.Len(t, index.items, 1)
-	// PrepareSearchChunks aggregates by file, so the chunk name is the filename
-	assert.Equal(t, "test_file.go", index.items[0].Chunk.Name)
-	assert.Contains(t, index.items[0].Chunk.Description, "TestFunc")
-	assert.Len(t, index.items[0].Embedding, 768)
+	require.NotEmpty(t, index.items)
+	foundSymbol := false
+	for _, item := range index.items {
+		if item.Chunk.Name == "TestFunc" && item.Chunk.UnitType == "function" {
+			foundSymbol = true
+		}
+		assert.Len(t, item.Embedding, 768)
+	}
+	assert.True(t, foundSymbol)
 }
 
 func TestEngine_CreateChunk(t *testing.T) {
@@ -89,6 +94,9 @@ func TestEngine_CreateChunk(t *testing.T) {
 		text := chunk.ToEmbeddableText()
 		assert.Contains(t, text, "Symbol: ProcessOrder (function)")
 		assert.Contains(t, text, "Depends on: Order")
+		require.Len(t, chunk.Sources, 1)
+		assert.Equal(t, unitA.ID, chunk.Sources[0].SymbolID)
+		assert.Equal(t, "primary", chunk.Sources[0].Relation)
 	})
 
 	t.Run("Structured chunk for struct", func(t *testing.T) {
@@ -127,4 +135,67 @@ func TestEngine_IndexIncrementalWithOptions_BudgetLimit(t *testing.T) {
 	)
 	require.NoError(t, err)
 	assert.Len(t, index.items, 1)
+}
+
+func TestEngine_IndexAllWithOptions_BudgetLimit(t *testing.T) {
+	g := graph.NewGraph()
+	g.AddUnit(&extractor.CodeUnit{
+		ID:       "id1",
+		Name:     "Alpha",
+		UnitType: "function",
+		Filepath: "pkg/a.go",
+	})
+	g.AddUnit(&extractor.CodeUnit{
+		ID:       "id2",
+		Name:     "Beta",
+		UnitType: "function",
+		Filepath: "pkg/b.go",
+	})
+	g.LinkRelations()
+
+	embedder := &mockEmbedder{dim: 8}
+	index := NewMemoryIndex(g)
+	engine := NewEngine(g, embedder, index)
+
+	err := engine.IndexAllWithOptions(context.Background(), IndexingOptions{MaxChunksPerRun: 1})
+	require.NoError(t, err)
+	assert.Len(t, index.items, 1)
+}
+
+func TestEngine_CreateSymbolChunksForNode_SegmentsLongFunction(t *testing.T) {
+	g := graph.NewGraph()
+	var longBody strings.Builder
+	longBody.WriteString("func VeryLong() {\n")
+	for i := 0; i < 70; i++ {
+		longBody.WriteString("line()\n")
+	}
+	longBody.WriteString("}\n")
+
+	unit := &extractor.CodeUnit{
+		ID:        "pkg/file.go:VeryLong:1",
+		Name:      "VeryLong",
+		UnitType:  "function",
+		Filepath:  "pkg/file.go",
+		Content:   longBody.String(),
+		StartLine: 10,
+		EndLine:   90,
+	}
+	g.AddUnit(unit)
+	g.LinkRelations()
+
+	engine := NewEngine(g, nil, nil)
+	node := g.Nodes[unit.ID]
+	parts := engine.createSymbolChunksForNode(node)
+	require.Greater(t, len(parts), 1)
+	assert.Equal(t, "function", parts[0].UnitType)
+
+	foundSegment := false
+	for _, p := range parts[1:] {
+		if p.UnitType == "symbol_segment" {
+			foundSegment = true
+			assert.Contains(t, p.ID, "::seg:")
+			assert.NotEmpty(t, p.Content)
+		}
+	}
+	assert.True(t, foundSegment)
 }

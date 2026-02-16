@@ -75,7 +75,19 @@ func (pb *PromptBuilder) BuildUpdateDocPrompt(currentContent string, relevantCod
 	sb.WriteString("\n\n=== RELEVANT CODE CHANGES (CONTEXT) ===\n")
 
 	for _, c := range relevantCode {
-		fmt.Fprintf(&sb, "File: %s\nSymbol: %s\nDescription: %s\nCode:\n```go\n%s\n```\n\n", c.Name, c.Name, c.Description, c.Content)
+		path := c.FilePath
+		if strings.TrimSpace(path) == "" {
+			path = c.ID
+		}
+		fmt.Fprintf(&sb, "Source: %s\nSymbol: %s (%s)\nPackage: %s\nSignature: %s\nDescription: %s\nCode:\n```go\n%s\n```\n\n",
+			path,
+			c.Name,
+			c.UnitType,
+			c.Package,
+			c.Signature,
+			c.Description,
+			c.Content,
+		)
 	}
 
 	sb.WriteString("\n**INSTRUCTION**:\n")
@@ -85,8 +97,13 @@ func (pb *PromptBuilder) BuildUpdateDocPrompt(currentContent string, relevantCod
 	sb.WriteString("4. Prioritize semantic explanation (intent, behavior, constraints) over raw code structure.\n")
 	sb.WriteString("5. If new behavior exists, append a `###` subsection inside this section.\n")
 	sb.WriteString("6. Do NOT include call-chain chatter such as 'this method is used by X'.\n")
-	sb.WriteString("7. Avoid placeholders, speculation, and duplicated content.\n")
-	sb.WriteString("8. OUTPUT ONLY markdown for this single section.\n")
+	sb.WriteString("7. Do NOT describe section content as a file-by-file walkthrough.\n")
+	sb.WriteString("8. Do NOT use source file paths or package paths as subsection titles.\n")
+	sb.WriteString("9. Replace placeholders completely; never output instructional text (e.g., 'Explain...', 'Describe...', 'Write...').\n")
+	sb.WriteString("10. In `# Key Features`, produce 3-5 semantic capabilities, not symbol/file listings.\n")
+	sb.WriteString("11. In `# Overview`, include exactly one Mermaid `graph LR` with meaningful stage labels.\n")
+	sb.WriteString("12. Avoid speculation and duplicated headings.\n")
+	sb.WriteString("13. OUTPUT ONLY markdown for this single section.\n")
 
 	return sb.String()
 }
@@ -138,6 +155,41 @@ func (pb *PromptBuilder) BuildInsertionPointPrompt(toc []string, newContent stri
 	sb.WriteString("4. **OUTPUT ONLY one integer**.\n")
 	sb.WriteString("5. If it belongs before the first section, output -1.\n")
 	sb.WriteString("6. Do not output prose, markdown, or multiple numbers.\n")
+
+	return sb.String()
+}
+
+func (pb *PromptBuilder) BuildRenderFromDraftPrompt(draftJSON string, relevantCode []SearchChunk) string {
+	var sb strings.Builder
+	sb.WriteString("Role: Technical Documentation Renderer. Task: Render a polished markdown section from a structured draft.\n")
+	sb.WriteString(securityInstruction)
+	sb.WriteString("You MUST treat the draft as source-of-truth for claims.\n")
+	sb.WriteString("Do NOT add claims not grounded in draft claims and code evidence.\n")
+	sb.WriteString("Preserve section scope and heading intent.\n")
+
+	sb.WriteString("\n\n=== SECTION DRAFT (JSON) ===\n")
+	sb.WriteString(draftJSON)
+	sb.WriteString("\n\n=== CODE EVIDENCE (SUPPORTING CONTEXT) ===\n")
+	for _, c := range relevantCode {
+		path := c.FilePath
+		if strings.TrimSpace(path) == "" {
+			path = c.ID
+		}
+		fmt.Fprintf(&sb, "Source: %s\nSymbol: %s (%s)\nPackage: %s\nDescription: %s\nSignature: %s\nCode:\n```go\n%s\n```\n\n",
+			path, c.Name, c.UnitType, c.Package, c.Description, c.Signature, c.Content)
+	}
+
+	sb.WriteString("\n**INSTRUCTION**:\n")
+	sb.WriteString("1. Output exactly one section in markdown.\n")
+	sb.WriteString("2. Keep all draft claims, but rewrite for clarity and technical precision.\n")
+	sb.WriteString("3. Do NOT invent new claims, APIs, or behavior.\n")
+	sb.WriteString("4. Keep wording semantic and capability-oriented, not file-by-file narration.\n")
+	sb.WriteString("5. Never use headings or bullets like 'module X.go', 'package Y', or symbol dump lists.\n")
+	sb.WriteString("6. Explain behavior as capability + execution flow + constraints using concise prose paragraphs.\n")
+	sb.WriteString("7. Include concrete technical anchors (function/type names in backticks) where relevant.\n")
+	sb.WriteString("8. If a mermaid block exists in draft context, preserve one meaningful diagram.\n")
+	sb.WriteString("9. Avoid placeholders, duplicated headings, and speculative language.\n")
+	sb.WriteString("10. OUTPUT ONLY markdown.\n")
 
 	return sb.String()
 }

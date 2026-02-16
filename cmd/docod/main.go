@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"docod/internal/config"
@@ -62,26 +63,53 @@ func initStore() (*storage.SQLiteStore, error) {
 }
 
 // initEngine initializes the Knowledge Engine with configured Embedder and Summarizer.
-func initEngine(ctx context.Context, g *graph.Graph, store *storage.SQLiteStore) (*knowledge.Engine, *knowledge.GeminiSummarizer, error) {
+func initEngine(ctx context.Context, g *graph.Graph, store *storage.SQLiteStore) (*knowledge.Engine, knowledge.Summarizer, error) {
 	cfg, err := config.LoadConfig("config.yaml")
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	if cfg.AI.APIKey == "" {
-		return nil, nil, fmt.Errorf("AI API key not configured")
+	embeddingProvider := strings.ToLower(strings.TrimSpace(cfg.AI.EmbeddingProvider))
+	embedKey := strings.TrimSpace(cfg.AI.EmbeddingAPIKey)
+	baseURL := ""
+	switch embeddingProvider {
+	case "openai":
+		baseURL = cfg.AI.OpenAIBaseURL
+	case "ollama":
+		embedKey = ""
+		baseURL = cfg.AI.OllamaBaseURL
+	}
+	if embeddingProvider != "ollama" && strings.TrimSpace(embedKey) == "" {
+		return nil, nil, fmt.Errorf("embedding API key not configured for provider=%s", cfg.AI.EmbeddingProvider)
 	}
 
 	// 1. Setup Embedder
-	embedder, err := knowledge.NewGeminiEmbedder(ctx, cfg.AI.APIKey, cfg.AI.Model, cfg.AI.Dimension)
+	embedder, err := knowledge.NewEmbedder(ctx, knowledge.EmbedderOptions{
+		Provider:  cfg.AI.EmbeddingProvider,
+		APIKey:    embedKey,
+		Model:     cfg.AI.EmbeddingModel,
+		Dimension: cfg.AI.EmbeddingDim,
+		BaseURL:   baseURL,
+	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create embedder: %w", err)
 	}
 
 	// 2. Setup Summarizer
-	summarizer, err := knowledge.NewGeminiSummarizer(ctx, cfg.AI.APIKey, cfg.AI.SummaryModel)
+	llmProvider := strings.ToLower(strings.TrimSpace(cfg.AI.LLMProvider))
+	llmKey := strings.TrimSpace(cfg.AI.LLMAPIKey)
+	llmBaseURL := strings.TrimSpace(cfg.AI.LLMBaseURL)
+	if (llmProvider == "gemini" || llmProvider == "openai") && llmKey == "" {
+		return nil, nil, fmt.Errorf("LLM API key not configured for provider=%s", cfg.AI.LLMProvider)
+	}
+	summarizer, err := knowledge.NewSummarizer(ctx, knowledge.SummarizerOptions{
+		Provider: cfg.AI.LLMProvider,
+		APIKey:   llmKey,
+		Model:    cfg.AI.LLMModel,
+		BaseURL:  llmBaseURL,
+	})
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create summarizer: %w", err)
+		return nil, nil, fmt.Errorf("failed to create llm summarizer: %w", err)
 	}
 
 	// 3. Create Engine
@@ -188,33 +216,244 @@ var generateCmd = &cobra.Command{
 	Short: "Generate documentation from the knowledge graph",
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
+		report := generator.NewPipelineReport("full_generate", "docs")
+		reportPath := "docs/pipeline_report.json"
 
 		// 1. Initialize Store
+		stage := report.BeginStage("init_store")
 		store, err := initStore()
 		if err != nil {
+			report.EndStage(stage, "error", nil, nil, err)
+			_ = report.Save(reportPath)
 			log.Fatalf("Failed to initialize database: %v", err)
 		}
+		report.EndStage(stage, "ok", nil, nil, nil)
 		defer store.Close()
 
 		fmt.Println("🔄 Loading knowledge graph...")
+		stage = report.BeginStage("load_graph")
 		g, err := store.LoadGraph(ctx)
 		if err != nil {
+			report.EndStage(stage, "error", nil, nil, err)
+			_ = report.Save(reportPath)
 			log.Fatalf("Failed to load graph: %v", err)
 		}
+		report.EndStage(stage, "ok", map[string]float64{
+			"nodes_total": float64(len(g.Nodes)),
+			"edges_total": float64(len(g.Edges)),
+		}, nil, nil)
 
 		// 2. Initialize Engine & Summarizer
+		stage = report.BeginStage("init_engine")
 		engine, summarizer, err := initEngine(ctx, g, store)
 		if err != nil {
+			report.EndStage(stage, "error", nil, nil, err)
+			report.AddSignal("engine_init_failed", "init_engine", "critical", "Failed to initialize embedder/summarizer.", 1)
+			_ = report.Save(reportPath)
 			log.Fatalf("Setup failed: %v\nCheck your config.yaml and API keys.", err)
+		}
+		report.EndStage(stage, "ok", nil, nil, nil)
+
+		stage = report.BeginStage("index_health")
+		indexMode := "reuse"
+		indexRebuildError := ""
+		expectedIDs, healthBefore, err := assessIndexHealth(ctx, engine, store)
+		if err != nil {
+			report.EndStage(stage, "error", nil, nil, err)
+			report.AddSignal("index_health_assess_failed", "index_health", "warning", "Failed to assess vector index health.", 1)
+		} else {
+			if healthBefore.IndexedChunks == 0 {
+				report.AddSignal("index_empty_before_generate", "index_health", "warning", "Vector index is empty before generation.", 0)
+			}
+
+			if shouldRebuildIndex(healthBefore) {
+				indexMode = "rebuild_full"
+				fmt.Println("🧠 Rebuilding vector index for full generation...")
+				if err := engine.IndexAllWithOptions(ctx, knowledge.IndexingOptions{
+					// Full generation prioritizes retrieval quality over runtime cap.
+					MaxChunksPerRun: 0,
+				}); err != nil {
+					indexRebuildError = err.Error()
+					report.AddSignal("index_rebuild_failed", "index_health", "critical", fmt.Sprintf("Vector index rebuild failed: %v", err), 1)
+				}
+			}
+
+			healthAfter, staleAfter, err := reassessIndexHealth(ctx, store, expectedIDs)
+			if err != nil {
+				report.EndStage(stage, "error", nil, []string{"mode=" + indexMode}, err)
+				report.AddSignal("index_health_reassess_failed", "index_health", "warning", "Failed to reassess index health after maintenance.", 1)
+			} else {
+				if len(staleAfter) > 0 {
+					if err := store.Delete(ctx, staleAfter); err != nil {
+						report.AddSignal("stale_chunk_cleanup_failed", "index_health", "warning", "Failed to clean stale chunks after health check.", float64(len(staleAfter)))
+					} else {
+						healthAfter.StaleChunks = 0
+						healthAfter.StaleRatio = 0
+					}
+				}
+
+				if healthAfter.IndexedChunks == 0 {
+					report.AddSignal("index_empty_after_health", "index_health", "critical", "Vector index remains empty after health maintenance.", 0)
+				}
+				if healthAfter.Coverage < 0.70 {
+					report.AddSignal("index_low_coverage", "index_health", "warning", "Indexed chunk coverage is below threshold.", healthAfter.Coverage)
+				}
+				if healthAfter.Freshness < 0.85 {
+					report.AddSignal("index_low_freshness", "index_health", "warning", "Index freshness is below threshold.", healthAfter.Freshness)
+				}
+				if healthAfter.StaleChunks > 0 {
+					report.AddSignal("index_stale_chunks_remaining", "index_health", "warning", "Stale chunks remain after cleanup.", float64(healthAfter.StaleChunks))
+				}
+
+				notes := []string{"mode=" + indexMode}
+				if strings.TrimSpace(indexRebuildError) != "" {
+					notes = append(notes, "index_rebuild_error="+strings.TrimSpace(indexRebuildError))
+				}
+				report.EndStage(stage, "ok", map[string]float64{
+					"expected_chunks":       float64(healthBefore.ExpectedChunks),
+					"indexed_chunks_before": float64(healthBefore.IndexedChunks),
+					"indexed_chunks_after":  float64(healthAfter.IndexedChunks),
+					"missing_chunks_before": float64(healthBefore.MissingChunks),
+					"stale_chunks_before":   float64(healthBefore.StaleChunks),
+					"missing_chunks_after":  float64(healthAfter.MissingChunks),
+					"stale_chunks_after":    float64(healthAfter.StaleChunks),
+					"coverage_before":       healthBefore.Coverage,
+					"coverage_after":        healthAfter.Coverage,
+					"freshness_before":      healthBefore.Freshness,
+					"freshness_after":       healthAfter.Freshness,
+					"stale_ratio_before":    healthBefore.StaleRatio,
+					"stale_ratio_after":     healthAfter.StaleRatio,
+					"chunk_files_before":    float64(healthBefore.ChunkFiles),
+					"chunk_files_after":     float64(healthAfter.ChunkFiles),
+				}, notes, nil)
+			}
 		}
 
 		// 3. Generate
 		fmt.Println("🚀 Generating documentation...")
 		gen := generator.NewMarkdownGenerator(engine, summarizer)
-		if err := gen.GenerateDocs(ctx, "docs"); err != nil {
+		if err := gen.GenerateDocsWithReport(ctx, "docs", report); err != nil {
+			report.AddSignal("generate_docs_failed", "generate_docs", "critical", "Failed while generating docs.", 1)
+			_ = report.Save(reportPath)
 			log.Fatalf("Failed to generate docs: %v", err)
 		}
 
 		fmt.Println("✅ Documentation generated in 'docs/'.")
 	},
+}
+
+type indexHealthMetrics struct {
+	ExpectedChunks int
+	IndexedChunks  int
+	MissingChunks  int
+	StaleChunks    int
+	Coverage       float64
+	Freshness      float64
+	StaleRatio     float64
+	ChunkFiles     int
+}
+
+func assessIndexHealth(ctx context.Context, engine *knowledge.Engine, store *storage.SQLiteStore) (map[string]bool, indexHealthMetrics, error) {
+	expectedSet := make(map[string]bool)
+	for _, c := range engine.PrepareSearchChunks() {
+		id := strings.TrimSpace(c.ID)
+		if id == "" {
+			continue
+		}
+		expectedSet[id] = true
+	}
+	metrics, _, err := reassessIndexHealth(ctx, store, expectedSet)
+	return expectedSet, metrics, err
+}
+
+func reassessIndexHealth(ctx context.Context, store *storage.SQLiteStore, expectedSet map[string]bool) (indexHealthMetrics, []string, error) {
+	indexedIDs, err := store.ListChunkIDs(ctx)
+	if err != nil {
+		return indexHealthMetrics{}, nil, err
+	}
+	indexedSet := make(map[string]bool, len(indexedIDs))
+	for _, id := range indexedIDs {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		indexedSet[id] = true
+	}
+
+	missing := 0
+	intersection := 0
+	for id := range expectedSet {
+		if indexedSet[id] {
+			intersection++
+			continue
+		}
+		missing++
+	}
+
+	staleIDs := make([]string, 0)
+	for id := range indexedSet {
+		if expectedSet[id] {
+			continue
+		}
+		staleIDs = append(staleIDs, id)
+	}
+
+	files, err := store.CountChunkFiles(ctx)
+	if err != nil {
+		return indexHealthMetrics{}, nil, err
+	}
+
+	expectedTotal := len(expectedSet)
+	indexedTotal := len(indexedSet)
+	coverage := 1.0
+	if expectedTotal > 0 {
+		coverage = float64(intersection) / float64(expectedTotal)
+	}
+	denom := maxInt(expectedTotal, indexedTotal)
+	freshness := 1.0
+	if denom > 0 {
+		freshness = 1.0 - (float64(missing+len(staleIDs)) / float64(denom))
+	}
+	staleRatio := 0.0
+	if indexedTotal > 0 {
+		staleRatio = float64(len(staleIDs)) / float64(indexedTotal)
+	}
+
+	return indexHealthMetrics{
+		ExpectedChunks: expectedTotal,
+		IndexedChunks:  indexedTotal,
+		MissingChunks:  missing,
+		StaleChunks:    len(staleIDs),
+		Coverage:       clamp01(coverage),
+		Freshness:      clamp01(freshness),
+		StaleRatio:     clamp01(staleRatio),
+		ChunkFiles:     files,
+	}, staleIDs, nil
+}
+
+func shouldRebuildIndex(m indexHealthMetrics) bool {
+	if m.IndexedChunks == 0 {
+		return true
+	}
+	if m.ExpectedChunks == 0 {
+		return false
+	}
+	return m.Freshness < 0.85 || m.Coverage < 0.70 || m.StaleRatio > 0.15
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func clamp01(v float64) float64 {
+	if v < 0 {
+		return 0
+	}
+	if v > 1 {
+		return 1
+	}
+	return v
 }

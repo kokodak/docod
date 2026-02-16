@@ -14,6 +14,7 @@ type Embedder interface {
 type Summarizer interface {
 	SummarizeFullDoc(ctx context.Context, archChunks, featChunks, confChunks []SearchChunk) (string, error)
 	UpdateDocSection(ctx context.Context, currentContent string, relevantCode []SearchChunk) (string, error)
+	RenderSectionFromDraft(ctx context.Context, draftJSON string, relevantCode []SearchChunk) (string, error)
 	GenerateNewSection(ctx context.Context, relevantCode []SearchChunk) (string, error)
 	FindInsertionPoint(ctx context.Context, toc []string, newContent string) (int, error)
 }
@@ -29,4 +30,10 @@ type Indexer interface {
 	Add(ctx context.Context, items []VectorItem) error
 	Delete(ctx context.Context, ids []string) error
 	Search(ctx context.Context, queryVector []float32, topK int) ([]VectorItem, error)
+}
+
+// IndexContentHashReader is an optional capability for index implementations.
+// It allows callers to skip embedding work when chunk content has not changed.
+type IndexContentHashReader interface {
+	GetContentHashes(ctx context.Context, ids []string) (map[string]string, error)
 }

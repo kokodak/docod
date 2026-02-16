@@ -291,7 +291,9 @@ func (s *IncrementalSync) documentationStage(ctx context.Context, store *storage
 
 	if fullResync {
 		fmt.Println("🧠 Reindexing embeddings (full)...")
-		if err := engine.IndexAll(ctx); err != nil {
+		if err := engine.IndexAllWithOptions(ctx, knowledge.IndexingOptions{
+			MaxChunksPerRun: s.maxEmbedChunksPerRun(),
+		}); err != nil {
 			log.Printf("Warning: Full embedding index failed: %v", err)
 		}
 	} else {
@@ -338,24 +340,51 @@ func (s *IncrementalSync) documentationStage(ctx context.Context, store *storage
 	return nil
 }
 
-func initEngine(ctx context.Context, g *graph.Graph, store *storage.SQLiteStore) (*knowledge.Engine, *knowledge.GeminiSummarizer, error) {
+func initEngine(ctx context.Context, g *graph.Graph, store *storage.SQLiteStore) (*knowledge.Engine, knowledge.Summarizer, error) {
 	cfg, err := config.LoadConfig("config.yaml")
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	if cfg.AI.APIKey == "" {
-		return nil, nil, fmt.Errorf("AI API key not configured")
+	embeddingProvider := strings.ToLower(strings.TrimSpace(cfg.AI.EmbeddingProvider))
+	embedKey := strings.TrimSpace(cfg.AI.EmbeddingAPIKey)
+	baseURL := ""
+	switch embeddingProvider {
+	case "openai":
+		baseURL = cfg.AI.OpenAIBaseURL
+	case "ollama":
+		embedKey = ""
+		baseURL = cfg.AI.OllamaBaseURL
+	}
+	if embeddingProvider != "ollama" && strings.TrimSpace(embedKey) == "" {
+		return nil, nil, fmt.Errorf("embedding API key not configured for provider=%s", cfg.AI.EmbeddingProvider)
 	}
 
-	embedder, err := knowledge.NewGeminiEmbedder(ctx, cfg.AI.APIKey, cfg.AI.Model, cfg.AI.Dimension)
+	embedder, err := knowledge.NewEmbedder(ctx, knowledge.EmbedderOptions{
+		Provider:  cfg.AI.EmbeddingProvider,
+		APIKey:    embedKey,
+		Model:     cfg.AI.EmbeddingModel,
+		Dimension: cfg.AI.EmbeddingDim,
+		BaseURL:   baseURL,
+	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create embedder: %w", err)
 	}
 
-	summarizer, err := knowledge.NewGeminiSummarizer(ctx, cfg.AI.APIKey, cfg.AI.SummaryModel)
+	llmProvider := strings.ToLower(strings.TrimSpace(cfg.AI.LLMProvider))
+	llmKey := strings.TrimSpace(cfg.AI.LLMAPIKey)
+	llmBaseURL := strings.TrimSpace(cfg.AI.LLMBaseURL)
+	if (llmProvider == "gemini" || llmProvider == "openai") && llmKey == "" {
+		return nil, nil, fmt.Errorf("LLM API key not configured for provider=%s", cfg.AI.LLMProvider)
+	}
+	summarizer, err := knowledge.NewSummarizer(ctx, knowledge.SummarizerOptions{
+		Provider: cfg.AI.LLMProvider,
+		APIKey:   llmKey,
+		Model:    cfg.AI.LLMModel,
+		BaseURL:  llmBaseURL,
+	})
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create summarizer: %w", err)
+		return nil, nil, fmt.Errorf("failed to create llm summarizer: %w", err)
 	}
 
 	engine := knowledge.NewEngine(g, embedder, store)

@@ -116,6 +116,9 @@
             "$ref": "#/$defs/source_ref"
           }
         },
+        "evidence": {
+          "$ref": "#/$defs/evidence_ref"
+        },
         "hash": {
           "type": "string",
           "description": "Stable checksum of normalized section content and source refs."
@@ -167,6 +170,45 @@
           "type": "number",
           "minimum": 0,
           "maximum": 1
+        }
+      }
+    },
+    "evidence_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "coverage",
+        "confidence",
+        "chunk_count",
+        "source_count",
+        "query_count",
+        "low_evidence"
+      ],
+      "properties": {
+        "coverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "chunk_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "source_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "query_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "low_evidence": {
+          "type": "boolean"
         }
       }
     },

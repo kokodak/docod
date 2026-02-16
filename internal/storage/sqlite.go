@@ -387,7 +387,7 @@ func (s *SQLiteStore) Delete(ctx context.Context, ids []string) error {
 	}
 	defer tx.Rollback()
 
-	query := "DELETE FROM chunks WHERE id = ?"
+	query := "DELETE FROM chunks WHERE id = ? OR COALESCE(json_extract(content, '$.file_path'), '') = ?"
 	stmt, err := tx.PrepareContext(ctx, query)
 	if err != nil {
 		return err
@@ -395,12 +395,74 @@ func (s *SQLiteStore) Delete(ctx context.Context, ids []string) error {
 	defer stmt.Close()
 
 	for _, id := range ids {
-		if _, err := stmt.Exec(id); err != nil {
+		if _, err := stmt.Exec(id, id); err != nil {
 			return err
 		}
 	}
 
 	return tx.Commit()
+}
+
+// GetContentHashes returns stored content hashes for requested chunk IDs.
+func (s *SQLiteStore) GetContentHashes(ctx context.Context, ids []string) (map[string]string, error) {
+	out := make(map[string]string)
+	if len(ids) == 0 {
+		return out, nil
+	}
+
+	clean := make([]string, 0, len(ids))
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		clean = append(clean, id)
+	}
+	if len(clean) == 0 {
+		return out, nil
+	}
+
+	const batchSize = 400
+	for start := 0; start < len(clean); start += batchSize {
+		end := start + batchSize
+		if end > len(clean) {
+			end = len(clean)
+		}
+		batch := clean[start:end]
+
+		placeholders := strings.Repeat("?,", len(batch))
+		placeholders = strings.TrimSuffix(placeholders, ",")
+		query := fmt.Sprintf(
+			"SELECT id, COALESCE(json_extract(content, '$.content_hash'), '') FROM chunks WHERE id IN (%s)",
+			placeholders,
+		)
+
+		args := make([]interface{}, 0, len(batch))
+		for _, id := range batch {
+			args = append(args, id)
+		}
+
+		rows, err := s.db.QueryContext(ctx, query, args...)
+		if err != nil {
+			return nil, err
+		}
+		for rows.Next() {
+			var id string
+			var hash string
+			if err := rows.Scan(&id, &hash); err != nil {
+				_ = rows.Close()
+				return nil, err
+			}
+			out[id] = hash
+		}
+		if err := rows.Err(); err != nil {
+			_ = rows.Close()
+			return nil, err
+		}
+		_ = rows.Close()
+	}
+
+	return out, nil
 }
 
 // Search implements knowledge.Indexer interface
@@ -416,6 +478,55 @@ func (s *SQLiteStore) Search(ctx context.Context, queryVector []float32, topK in
 		items = append(items, knowledge.VectorItem{Chunk: c})
 	}
 	return items, nil
+}
+
+// CountChunks returns total number of indexed chunks.
+func (s *SQLiteStore) CountChunks(ctx context.Context) (int, error) {
+	row := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM chunks")
+	var n int
+	if err := row.Scan(&n); err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
+// CountChunkFiles returns number of distinct file paths represented by indexed chunks.
+func (s *SQLiteStore) CountChunkFiles(ctx context.Context) (int, error) {
+	row := s.db.QueryRowContext(ctx, `
+		SELECT COUNT(DISTINCT json_extract(content, '$.file_path'))
+		FROM chunks
+		WHERE COALESCE(json_extract(content, '$.file_path'), '') != ''
+	`)
+	var n int
+	if err := row.Scan(&n); err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
+// ListChunkIDs returns all chunk IDs currently in the vector index.
+func (s *SQLiteStore) ListChunkIDs(ctx context.Context) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx, "SELECT id FROM chunks")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	ids := make([]string, 0)
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		if strings.TrimSpace(id) == "" {
+			continue
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return ids, nil
 }
 
 func cosineSimilarity(a, b []float32) float32 {

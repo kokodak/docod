@@ -68,8 +68,12 @@ func (u *DocUpdater) UpdateDocsWithPlan(ctx context.Context, docPath string, cha
 
 	for _, chunk := range fileChunks {
 		matched := false
+		chunkFile := chunk.FilePath
+		if strings.TrimSpace(chunkFile) == "" {
+			chunkFile = chunk.ID
+		}
 		for i := range model.Sections {
-			if sectionReferencesFile(model.Sections[i], chunk.ID) {
+			if sectionReferencesFile(model.Sections[i], chunkFile) {
 				affected[model.Sections[i].ID] = append(affected[model.Sections[i].ID], chunk)
 				matched = true
 			}
@@ -143,21 +147,33 @@ func (u *DocUpdater) UpdateDocsWithPlan(ctx context.Context, docPath string, cha
 		if sec == nil {
 			continue
 		}
+		secPlan := fallbackSectionPlan(*sec)
+		if defaultPlan := BuildDefaultFullDocPlan(); defaultPlan != nil {
+			if planned, ok := defaultPlan.SectionByID(secID); ok {
+				secPlan = planned
+			}
+		}
+		evidence := buildEvidenceStats(secPlan, []string{"incremental update " + secID}, triggeringChunks)
 
 		// Always keep traceability up to date.
 		sec.Sources = MergeSources(sec.Sources, triggeringChunks)
+		sec.Evidence = evidence
 		sec.LastUpdated = &UpdateInfo{
 			CommitSHA: "HEAD",
 			Timestamp: now,
 		}
 
 		// Cost control: update high-confidence sections first with LLM rewrite.
-		shouldRewrite := llmApplied < maxLLMUpdates
+		shouldRewrite := llmApplied < maxLLMUpdates && shouldUseLLMForEvidence(evidence)
 		if shouldRewrite && plan != nil && plan.MinConfidenceForLLM > 0 {
 			secConfidence := resolveSectionConfidence(plan, secID)
 			shouldRewrite = secConfidence >= plan.MinConfidenceForLLM
 		}
 		if !shouldRewrite {
+			if evidence != nil && evidence.LowEvidence {
+				sec.ContentMD = applyLowEvidencePolicy(sec.ContentMD)
+				sec.Summary = summarizeContent(sec.ContentMD)
+			}
 			sec.Hash = sectionHash(*sec)
 			appliedUpdates++
 			continue
@@ -173,6 +189,9 @@ func (u *DocUpdater) UpdateDocsWithPlan(ctx context.Context, docPath string, cha
 		}
 
 		sec.ContentMD = strings.TrimSpace(updatedContent)
+		if evidence != nil && evidence.LowEvidence {
+			sec.ContentMD = applyLowEvidencePolicy(sec.ContentMD)
+		}
 		sec.Summary = summarizeContent(sec.ContentMD)
 		sec.Hash = sectionHash(*sec)
 		appliedUpdates++
@@ -187,10 +206,26 @@ func (u *DocUpdater) UpdateDocsWithPlan(ctx context.Context, docPath string, cha
 		if len(batch) > 8 {
 			batch = batch[:8]
 		}
-		newContent, err := u.summarizer.GenerateNewSection(ctx, batch)
-		if err != nil {
-			fmt.Printf("Failed to generate new section for unmatched changes: %v\n", err)
+		newSecPlan := SectionDocPlan{
+			SectionID:   "incremental-changes",
+			Title:       "Incremental Changes",
+			MinEvidence: 4,
+		}
+		newEvidence := buildEvidenceStats(newSecPlan, []string{"incremental unmatched changes"}, batch)
+		newContent := ""
+		if shouldUseLLMForEvidence(newEvidence) {
+			content, err := u.summarizer.GenerateNewSection(ctx, batch)
+			if err != nil {
+				fmt.Printf("Failed to generate new section for unmatched changes: %v\n", err)
+			} else {
+				newContent = content
+			}
+		}
+		if strings.TrimSpace(newContent) == "" {
 			newContent = buildFallbackBatchSectionContent(batch)
+		}
+		if newEvidence != nil && newEvidence.LowEvidence {
+			newContent = applyLowEvidencePolicy(newContent)
 		}
 
 		nextOrder := len(model.Sections)
@@ -205,6 +240,7 @@ func (u *DocUpdater) UpdateDocsWithPlan(ctx context.Context, docPath string, cha
 			Summary:   summarizeContent(newContent),
 			Status:    "active",
 			Sources:   MergeSources(nil, batch),
+			Evidence:  newEvidence,
 		}
 		newSec.Hash = sectionHash(newSec)
 		newSec.LastUpdated = &UpdateInfo{
@@ -450,6 +486,22 @@ func resolveSectionConfidence(plan *UpdatePlan, sectionID string) float64 {
 		return 1
 	}
 	return value
+}
+
+func shouldUseLLMForEvidence(e *EvidenceRef) bool {
+	if e == nil {
+		return true
+	}
+	if e.LowEvidence {
+		return false
+	}
+	if e.Coverage < 0.75 {
+		return false
+	}
+	if e.Confidence < 0.6 {
+		return false
+	}
+	return true
 }
 
 func (u *DocUpdater) llmRouteSections(ctx context.Context, model *DocModel, chunks []knowledge.SearchChunk, routeBudget int) (map[string][]knowledge.SearchChunk, []knowledge.SearchChunk) {

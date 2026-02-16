@@ -1,11 +1,16 @@
 project:
   root: "." # Project root path used by scan/update/sync commands.
 ai:
-  provider: "gemini" # LLM/embedding provider name.
-  model: "gemini-embedding-001" # Embedding model for vector search/matching.
-  dimension: 768 # Embedding vector dimension (must match model output).
-  api_key: "" # API key (recommended: use DOCOD_API_KEY env var, not hardcoded).
-  summary_model: "gemini-2.5-flash-lite" # LLM used for section update/new section generation.
+  embedding_provider: "ollama" # Embedding provider (gemini|openai|ollama).
+  embedding_model: "nomic-embed-text" # Embedding model (local Ollama nomic model).
+  embedding_api_key: "" # Required when embedding_provider is gemini/openai. For openai embeddings, set this here or DOCOD_EMBEDDING_API_KEY.
+  embedding_dimension: 768 # Embedding vector dimension.
+  llm_provider: "gemini" # LLM provider for summarization (gemini|openai).
+  llm_model: "gemini-2.5-flash-lite" # LLM model for section drafting/summarization.
+  llm_api_key: "" # Required when llm_provider is gemini/openai. You can also set DOCOD_LLM_API_KEY.
+  openai_base_url: "" # Optional override for OpenAI embeddings endpoint (/v1/embeddings).
+  llm_base_url: "" # Optional override for LLM endpoint. For openai, use API root or /v1/chat/completions.
+  ollama_base_url: "http://127.0.0.1:11434" # Local Ollama server URL for embeddings.
 docs:
   max_llm_sections: 2 # Max number of impacted sections to rewrite with LLM per sync run.
   enable_semantic_match: false # Enable embedding-based section matching for unmatched changes.

@@ -11,16 +11,27 @@ import (
 
 // SearchChunk represents a structured piece of code knowledge, ready for indexing or embedding.
 type SearchChunk struct {
-	ID           string   `json:"id"`
-	Name         string   `json:"name"`
-	UnitType     string   `json:"unit_type"`
-	Package      string   `json:"package"`
-	Description  string   `json:"description"`
-	Signature    string   `json:"signature"`
-	Content      string   `json:"content"`      // Actual code body for LLM analysis
-	ContentHash  string   `json:"content_hash"` // Hash for change detection
-	Dependencies []string `json:"dependencies"`
-	UsedBy       []string `json:"used_by"`
+	ID           string        `json:"id"`
+	FilePath     string        `json:"file_path,omitempty"`
+	Name         string        `json:"name"`
+	UnitType     string        `json:"unit_type"`
+	Package      string        `json:"package"`
+	Description  string        `json:"description"`
+	Signature    string        `json:"signature"`
+	Content      string        `json:"content"`      // Actual code body for LLM analysis
+	ContentHash  string        `json:"content_hash"` // Hash for change detection
+	Dependencies []string      `json:"dependencies"`
+	UsedBy       []string      `json:"used_by"`
+	Sources      []ChunkSource `json:"sources,omitempty"`
+}
+
+type ChunkSource struct {
+	SymbolID   string  `json:"symbol_id"`
+	FilePath   string  `json:"file_path"`
+	StartLine  int     `json:"start_line"`
+	EndLine    int     `json:"end_line"`
+	Relation   string  `json:"relation"` // primary, dependency, context
+	Confidence float64 `json:"confidence,omitempty"`
 }
 
 // ToEmbeddableText converts the structured chunk into a single string optimized for embedding models.
@@ -42,9 +53,10 @@ func (c SearchChunk) ToEmbeddableText() string {
 
 // Engine handles data refinement and preparation for LLM/Embedding.
 type Engine struct {
-	graph    *graph.Graph
-	embedder Embedder
-	index    Indexer
+	graph         *graph.Graph
+	embedder      Embedder
+	index         Indexer
+	queryVecCache map[string][]float32
 }
 
 type IndexingOptions struct {
@@ -54,9 +66,10 @@ type IndexingOptions struct {
 // NewEngine creates a new knowledge engine with optional embedder and indexer.
 func NewEngine(g *graph.Graph, em Embedder, idx Indexer) *Engine {
 	return &Engine{
-		graph:    g,
-		embedder: em,
-		index:    idx,
+		graph:         g,
+		embedder:      em,
+		index:         idx,
+		queryVecCache: make(map[string][]float32),
 	}
 }
 
@@ -70,11 +83,17 @@ func (e *Engine) Indexer() Indexer {
 
 // IndexAll processes all graph nodes, converts them to embeddings, and adds them to the index.
 func (e *Engine) IndexAll(ctx context.Context) error {
+	return e.IndexAllWithOptions(ctx, IndexingOptions{})
+}
+
+// IndexAllWithOptions processes all graph nodes with runtime budget controls.
+func (e *Engine) IndexAllWithOptions(ctx context.Context, opts IndexingOptions) error {
 	if e.embedder == nil || e.index == nil {
 		return fmt.Errorf("embedder or indexer not initialized")
 	}
 
 	chunks := e.PrepareSearchChunks()
+	chunks = limitChunksByBudget(chunks, opts.MaxChunksPerRun)
 	return e.embedChunks(ctx, chunks)
 }
 
@@ -99,6 +118,11 @@ func (e *Engine) IndexIncrementalWithOptions(ctx context.Context, updatedFiles [
 
 	// 2. Process updated files
 	if len(updatedFiles) > 0 {
+		// Remove existing chunks for updated files first to avoid stale symbol IDs.
+		if err := e.index.Delete(ctx, updatedFiles); err != nil {
+			return fmt.Errorf("failed to delete stale chunks for updated files: %w", err)
+		}
+
 		chunks := e.PrepareChunksForFiles(updatedFiles)
 		chunks = limitChunksByBudget(chunks, opts.MaxChunksPerRun)
 		if len(chunks) > 0 {
@@ -115,17 +139,67 @@ func limitChunksByBudget(chunks []SearchChunk, max int) []SearchChunk {
 	if max <= 0 || len(chunks) <= max {
 		return chunks
 	}
-	ordered := append([]SearchChunk(nil), chunks...)
-	sort.Slice(ordered, func(i, j int) bool {
-		if ordered[i].ID == ordered[j].ID {
-			return ordered[i].ContentHash < ordered[j].ContentHash
+
+	var symbols []SearchChunk
+	var files []SearchChunk
+	for _, c := range chunks {
+		if c.UnitType == "file_module" {
+			files = append(files, c)
+			continue
 		}
-		return ordered[i].ID < ordered[j].ID
-	})
-	return ordered[:max]
+		symbols = append(symbols, c)
+	}
+
+	sortChunksByPriority(symbols)
+	sortChunksByPriority(files)
+
+	targetFiles := 0
+	switch {
+	case max >= 8:
+		targetFiles = max / 4
+	case max >= 4:
+		targetFiles = 1
+	default:
+		targetFiles = 0
+	}
+	targetSymbols := max - targetFiles
+
+	out := make([]SearchChunk, 0, max)
+	out = append(out, symbols[:minInt(len(symbols), targetSymbols)]...)
+	out = append(out, files[:minInt(len(files), targetFiles)]...)
+
+	// Backfill from whichever pool still has capacity.
+	if len(out) < max && len(symbols) > len(out) {
+		for _, c := range symbols {
+			if len(out) >= max {
+				break
+			}
+			if containsChunkID(out, c.ID) {
+				continue
+			}
+			out = append(out, c)
+		}
+	}
+	if len(out) < max {
+		for _, c := range files {
+			if len(out) >= max {
+				break
+			}
+			if containsChunkID(out, c.ID) {
+				continue
+			}
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 func (e *Engine) embedChunks(ctx context.Context, chunks []SearchChunk) error {
+	chunks = e.filterChunksForEmbedding(ctx, chunks)
+	if len(chunks) == 0 {
+		return nil
+	}
+
 	var texts []string
 	for _, c := range chunks {
 		texts = append(texts, c.ToEmbeddableText())
@@ -158,14 +232,24 @@ func (e *Engine) SearchByText(ctx context.Context, query string, topK int, exclu
 		return nil, nil
 	}
 
-	// 1. Get embedding for the query text
-	vectors, err := e.embedder.Embed(ctx, []string{query})
-	if err != nil || len(vectors) == 0 {
-		return nil, err
+	queryKey := strings.TrimSpace(query)
+	var queryVec []float32
+	if cached, ok := e.queryVecCache[queryKey]; ok && len(cached) > 0 {
+		queryVec = cached
+	} else {
+		// 1. Get embedding for the query text
+		vectors, err := e.embedder.Embed(ctx, []string{query})
+		if err != nil || len(vectors) == 0 {
+			return nil, err
+		}
+		queryVec = vectors[0]
+		if queryKey != "" {
+			e.queryVecCache[queryKey] = queryVec
+		}
 	}
 
 	// 2. Search index
-	items, err := e.index.Search(ctx, vectors[0], topK)
+	items, err := e.index.Search(ctx, queryVec, topK)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +264,51 @@ func (e *Engine) SearchByText(ctx context.Context, query string, topK int, exclu
 	return results, nil
 }
 
-// PrepareSearchChunks converts nodes into optimized chunks, aggregating by file context.
+func (e *Engine) filterChunksForEmbedding(ctx context.Context, chunks []SearchChunk) []SearchChunk {
+	if len(chunks) == 0 {
+		return nil
+	}
+
+	hashReader, ok := e.index.(IndexContentHashReader)
+	if !ok {
+		return chunks
+	}
+
+	ids := make([]string, 0, len(chunks))
+	for _, c := range chunks {
+		if strings.TrimSpace(c.ID) == "" {
+			continue
+		}
+		ids = append(ids, c.ID)
+	}
+	if len(ids) == 0 {
+		return chunks
+	}
+
+	existing, err := hashReader.GetContentHashes(ctx, ids)
+	if err != nil {
+		return chunks
+	}
+	if len(existing) == 0 {
+		return chunks
+	}
+
+	out := make([]SearchChunk, 0, len(chunks))
+	for _, c := range chunks {
+		id := strings.TrimSpace(c.ID)
+		if id == "" {
+			continue
+		}
+		if oldHash, ok := existing[id]; ok && oldHash != "" && c.ContentHash != "" && oldHash == c.ContentHash {
+			continue
+		}
+		out = append(out, c)
+	}
+	return out
+}
+
+// PrepareSearchChunks converts graph nodes into hybrid chunks.
+// Symbol chunks are primary, file-level chunks are secondary context.
 func (e *Engine) PrepareSearchChunks() []SearchChunk {
 	// Collect all filepaths from the graph
 	uniqueFiles := make(map[string]bool)
@@ -196,24 +324,14 @@ func (e *Engine) PrepareSearchChunks() []SearchChunk {
 	return e.PrepareChunksForFiles(files)
 }
 
-// PrepareChunksForFiles generates search chunks for specific files.
+// PrepareChunksForFiles generates hybrid search chunks for specific files.
 func (e *Engine) PrepareChunksForFiles(filepaths []string) []SearchChunk {
 	var chunks []SearchChunk
-
-	// Group nodes by file path to create "File Chunks" or "Logical Component Chunks"
-	// Optimization: Only scan nodes that belong to requested filepaths
-	// Since graph.Nodes is a map by ID, we need to iterate all or use an index.
-	// For now, iterating all is acceptable but inefficient for large graphs.
-	// TODO: Use FindNodesByFile from store or build an index in memory if repeated often.
-	// Current Graph struct doesn't have a file index in memory, but we can build a temp map.
-
 	targetFiles := make(map[string]bool)
 	for _, f := range filepaths {
 		targetFiles[f] = true
 	}
-
 	fileNodes := make(map[string][]*graph.Node)
-
 	for id, node := range e.graph.Nodes {
 		if targetFiles[node.Unit.Filepath] {
 			if !e.isDocRelevantNode(id, node) {
@@ -223,6 +341,18 @@ func (e *Engine) PrepareChunksForFiles(filepaths []string) []SearchChunk {
 		}
 	}
 
+	// 1) Symbol-first chunks
+	for _, nodes := range fileNodes {
+		for _, node := range nodes {
+			if node == nil || node.Unit == nil {
+				continue
+			}
+			symbolChunks := e.createSymbolChunksForNode(node)
+			chunks = append(chunks, symbolChunks...)
+		}
+	}
+
+	// 2) File-level context chunks (secondary)
 	for path, nodes := range fileNodes {
 		if len(nodes) == 0 {
 			continue
@@ -239,6 +369,7 @@ func (e *Engine) PrepareChunksForFiles(filepaths []string) []SearchChunk {
 
 		chunk := SearchChunk{
 			ID:          path,
+			FilePath:    path,
 			Name:        fileName,
 			UnitType:    "file_module",
 			Package:     pkgName,
@@ -254,6 +385,16 @@ func (e *Engine) PrepareChunksForFiles(filepaths []string) []SearchChunk {
 		fmt.Fprintf(&descBuilder, "Module `%s` in package `%s` containing:\n", fileName, pkgName)
 
 		for _, node := range nodes {
+			source := ChunkSource{
+				SymbolID:   node.Unit.ID,
+				FilePath:   node.Unit.Filepath,
+				StartLine:  node.Unit.StartLine,
+				EndLine:    node.Unit.EndLine,
+				Relation:   "primary",
+				Confidence: 0.9,
+			}
+			chunk.Sources = append(chunk.Sources, source)
+
 			// Aggregate description
 			fmt.Fprintf(&descBuilder, "- **%s** (%s): %s\n", node.Unit.Name, node.Unit.UnitType, node.Unit.Description)
 
@@ -297,8 +438,8 @@ func (e *Engine) PrepareChunksForFiles(filepaths []string) []SearchChunk {
 
 		chunks = append(chunks, chunk)
 	}
-
-	fmt.Printf("📦 Prepared %d Chunks from %d files\n", len(chunks), len(filepaths))
+	sortChunksByPriority(chunks)
+	fmt.Printf("📦 Prepared %d Chunks (symbol-first) from %d files\n", len(chunks), len(filepaths))
 	return chunks
 }
 
@@ -391,6 +532,7 @@ func (e *Engine) CreateChunk(id string, node *graph.Node) SearchChunk {
 	u := node.Unit
 	chunk := SearchChunk{
 		ID:          id,
+		FilePath:    u.Filepath,
 		Name:        u.Name,
 		UnitType:    u.UnitType,
 		Package:     u.Package,
@@ -398,6 +540,16 @@ func (e *Engine) CreateChunk(id string, node *graph.Node) SearchChunk {
 		Signature:   e.getConciseSignature(u),
 		Content:     u.Content,
 		ContentHash: u.ContentHash,
+		Sources: []ChunkSource{
+			{
+				SymbolID:   u.ID,
+				FilePath:   u.Filepath,
+				StartLine:  u.StartLine,
+				EndLine:    u.EndLine,
+				Relation:   "primary",
+				Confidence: 0.9,
+			},
+		},
 	}
 
 	for _, d := range e.graph.GetDependencies(id) {
@@ -409,6 +561,90 @@ func (e *Engine) CreateChunk(id string, node *graph.Node) SearchChunk {
 	}
 
 	return chunk
+}
+
+func (e *Engine) createSymbolChunksForNode(node *graph.Node) []SearchChunk {
+	base := e.CreateChunk(node.Unit.ID, node)
+	base.Content = truncateChunkContent(base.Content, 1200)
+	if !shouldSegmentChunk(base) {
+		return []SearchChunk{base}
+	}
+
+	const (
+		segmentLines   = 40
+		segmentOverlap = 8
+		maxSegments    = 3
+	)
+	lines := strings.Split(base.Content, "\n")
+	step := segmentLines - segmentOverlap
+	if step <= 0 {
+		step = segmentLines
+	}
+
+	segments := make([]SearchChunk, 0, maxSegments+1)
+	segments = append(segments, base)
+
+	for idx, start := 0, 0; start < len(lines) && idx < maxSegments; idx, start = idx+1, start+step {
+		end := start + segmentLines
+		if end > len(lines) {
+			end = len(lines)
+		}
+		if end <= start {
+			break
+		}
+		block := strings.TrimSpace(strings.Join(lines[start:end], "\n"))
+		if block == "" {
+			continue
+		}
+		seg := base
+		seg.ID = fmt.Sprintf("%s::seg:%d", base.ID, idx+1)
+		seg.UnitType = "symbol_segment"
+		seg.Description = fmt.Sprintf("%s [segment %d]", strings.TrimSpace(base.Description), idx+1)
+		seg.Content = block
+		seg.ContentHash = fmt.Sprintf("%s::seg:%d", base.ContentHash, idx+1)
+		seg.Sources = segmentSources(base.Sources, start, end)
+		segments = append(segments, seg)
+	}
+	return segments
+}
+
+func shouldSegmentChunk(c SearchChunk) bool {
+	switch c.UnitType {
+	case "function", "method":
+		return lineCount(c.Content) > 45
+	default:
+		return false
+	}
+}
+
+func lineCount(s string) int {
+	if strings.TrimSpace(s) == "" {
+		return 0
+	}
+	return len(strings.Split(s, "\n"))
+}
+
+func segmentSources(src []ChunkSource, segStartOffset int, segEndOffset int) []ChunkSource {
+	if len(src) == 0 {
+		return nil
+	}
+	out := make([]ChunkSource, 0, len(src))
+	for _, s := range src {
+		start := s.StartLine + segStartOffset
+		end := s.StartLine + segEndOffset - 1
+		if start <= 0 {
+			start = s.StartLine
+		}
+		if end < start {
+			end = start
+		}
+		copy := s
+		copy.StartLine = start
+		copy.EndLine = end
+		copy.Relation = "context"
+		out = append(out, copy)
+	}
+	return out
 }
 
 func (e *Engine) getConciseSignature(u *graph.Symbol) string {
@@ -433,4 +669,62 @@ func getFileName(path string) string {
 		return parts[len(parts)-1]
 	}
 	return path
+}
+
+func truncateChunkContent(content string, max int) string {
+	if max <= 0 || len(content) <= max {
+		return content
+	}
+	return content[:max] + "\n... (truncated)"
+}
+
+func containsChunkID(chunks []SearchChunk, id string) bool {
+	for _, c := range chunks {
+		if c.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
+func sortChunksByPriority(chunks []SearchChunk) {
+	sort.Slice(chunks, func(i, j int) bool {
+		pi := chunkPriority(chunks[i])
+		pj := chunkPriority(chunks[j])
+		if pi == pj {
+			if chunks[i].ID == chunks[j].ID {
+				return chunks[i].ContentHash < chunks[j].ContentHash
+			}
+			return chunks[i].ID < chunks[j].ID
+		}
+		return pi > pj
+	})
+}
+
+func chunkPriority(c SearchChunk) int {
+	score := 0
+	if c.UnitType == "file_module" {
+		score += 5
+	} else {
+		score += 40
+	}
+	if isExported(c.Name) {
+		score += 20
+	}
+	switch c.UnitType {
+	case "function", "method", "struct", "interface":
+		score += 12
+	case "constant", "variable":
+		score += 4
+	}
+	score += minInt(len(c.Dependencies), 8)
+	score += minInt(len(c.UsedBy), 8)
+	return score
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

@@ -3,235 +3,44 @@ package knowledge
 import (
 	"context"
 	"encoding/gob"
-	"errors"
-	"fmt"
 	"math"
 	"os"
 	"sort"
 	"strings"
-	"time"
 
 	"docod/internal/graph"
-
-	"google.golang.org/genai"
 )
-
-// GeminiEmbedder implements Embedder using Google's Gemini API (google.golang.org/genai).
-type GeminiEmbedder struct {
-	client    *genai.Client
-	model     string
-	dimension int
-}
-
-func NewGeminiEmbedder(ctx context.Context, apiKey string, modelName string, dim int) (*GeminiEmbedder, error) {
-	client, err := genai.NewClient(ctx, &genai.ClientConfig{
-		APIKey:  apiKey,
-		Backend: genai.BackendGeminiAPI,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create genai client: %w", err)
-	}
-	return &GeminiEmbedder{
-		client:    client,
-		model:     modelName,
-		dimension: dim,
-	}, nil
-}
-
-// embedBatchSize is the number of texts to send in a single API call to reduce rate limit hits.
-const embedBatchSize = 50
-
-// embedBatchDelay is the delay between batches to stay under 100 RPM.
-const embedBatchDelay = 700 * time.Millisecond
-
-// embedRetryDelay is how long to wait before retrying on 429.
-const embedRetryDelay = 6 * time.Second
-
-// embedMaxRetries is the max number of retries per batch on rate limit.
-const embedMaxRetries = 5
-
-func (g *GeminiEmbedder) Embed(ctx context.Context, texts []string) ([][]float32, error) {
-	var results [][]float32
-
-	var config *genai.EmbedContentConfig
-	if g.dimension > 0 {
-		dim := int32(g.dimension)
-		config = &genai.EmbedContentConfig{OutputDimensionality: &dim}
-	}
-
-	// Process in batches to reduce API calls (e.g. 136 chunks → 3 requests instead of 136)
-	for i := 0; i < len(texts); i += embedBatchSize {
-		// Delay between batches to avoid hitting 100 RPM
-		if i > 0 {
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			case <-time.After(embedBatchDelay):
-			}
-		}
-
-		end := i + embedBatchSize
-		if end > len(texts) {
-			end = len(texts)
-		}
-		batch := texts[i:end]
-
-		contents := make([]*genai.Content, 0, len(batch))
-		for _, text := range batch {
-			contents = append(contents, genai.NewContentFromText(text, genai.RoleUser))
-		}
-
-		var res *genai.EmbedContentResponse
-		var err error
-		for attempt := 0; attempt <= embedMaxRetries; attempt++ {
-			res, err = g.client.Models.EmbedContent(ctx, g.model, contents, config)
-			if err == nil {
-				break
-			}
-			// Retry on 429 / RESOURCE_EXHAUSTED
-			if !isRateLimitError(err) || attempt == embedMaxRetries {
-				return nil, fmt.Errorf("failed to embed text: %w", err)
-			}
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			case <-time.After(embedRetryDelay):
-			}
-		}
-		if len(res.Embeddings) != len(batch) {
-			return nil, fmt.Errorf("embedding count mismatch: got %d, expected %d", len(res.Embeddings), len(batch))
-		}
-		for _, emb := range res.Embeddings {
-			results = append(results, emb.Values)
-		}
-	}
-	return results, nil
-}
-
-func isRateLimitError(err error) bool {
-	if err == nil {
-		return false
-	}
-	var apiErr *genai.APIError
-	if errors.As(err, &apiErr) && apiErr.Code == 429 {
-		return true
-	}
-	// Fallback: check error string for RESOURCE_EXHAUSTED / quota
-	s := err.Error()
-	return strings.Contains(s, "429") || strings.Contains(s, "RESOURCE_EXHAUSTED") || strings.Contains(s, "quota")
-}
-
-func (g *GeminiEmbedder) Dimension() int {
-	return g.dimension
-}
-
-// GeminiSummarizer implements Summarizer using Google's Gemini Pro.
-type GeminiSummarizer struct {
-	client        *genai.Client
-	model         string
-	promptBuilder *PromptBuilder
-}
-
-func NewGeminiSummarizer(ctx context.Context, apiKey string, modelName string) (*GeminiSummarizer, error) {
-	client, err := genai.NewClient(ctx, &genai.ClientConfig{
-		APIKey:  apiKey,
-		Backend: genai.BackendGeminiAPI,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create genai client: %w", err)
-	}
-	return &GeminiSummarizer{
-		client:        client,
-		model:         modelName,
-		promptBuilder: &PromptBuilder{},
-	}, nil
-}
-
-func (s *GeminiSummarizer) SummarizeFullDoc(ctx context.Context, archChunks, featChunks, confChunks []SearchChunk) (string, error) {
-	prompt := s.promptBuilder.BuildFullDocPrompt(archChunks, featChunks, confChunks)
-	return s.generate(ctx, prompt)
-}
-
-func (s *GeminiSummarizer) UpdateDocSection(ctx context.Context, currentContent string, relevantCode []SearchChunk) (string, error) {
-	prompt := s.promptBuilder.BuildUpdateDocPrompt(currentContent, relevantCode)
-	return s.generate(ctx, prompt)
-}
-
-func (s *GeminiSummarizer) GenerateNewSection(ctx context.Context, relevantCode []SearchChunk) (string, error) {
-	prompt := s.promptBuilder.BuildNewSectionPrompt(relevantCode)
-	return s.generate(ctx, prompt)
-}
-
-func (s *GeminiSummarizer) FindInsertionPoint(ctx context.Context, toc []string, newContent string) (int, error) {
-	prompt := s.promptBuilder.BuildInsertionPointPrompt(toc, newContent)
-	resp, err := s.generate(ctx, prompt)
-	if err != nil {
-		return -1, err
-	}
-	
-	// Parse integer from response
-	var index int
-	_, err = fmt.Sscanf(strings.TrimSpace(resp), "%d", &index)
-	if err != nil {
-		// Fallback: try to find number in string if LLM was chatty
-		// Simple scan
-		words := strings.Fields(resp)
-		for _, w := range words {
-			if n, err := fmt.Sscanf(w, "%d", &index); err == nil && n == 1 {
-				return index, nil
-			}
-		}
-		return -1, fmt.Errorf("failed to parse index from LLM response: %s", resp)
-	}
-	return index, nil
-}
-
-func (s *GeminiSummarizer) generate(ctx context.Context, prompt string) (string, error) {
-	contents := genai.Text(prompt)
-	resp, err := s.client.Models.GenerateContent(ctx, s.model, contents, nil)
-	if err != nil {
-		return "", err
-	}
-	text := resp.Text()
-	if text == "" {
-		return "No analysis available.", nil
-	}
-	return cleanMarkdownOutput(text), nil
-}
-
-func cleanMarkdownOutput(text string) string {
-	text = strings.TrimSpace(text)
-	if strings.HasPrefix(text, "```markdown") {
-		text = strings.TrimPrefix(text, "```markdown")
-		text = strings.TrimSuffix(text, "```")
-	} else if strings.HasPrefix(text, "```") {
-		text = strings.TrimPrefix(text, "```")
-		text = strings.TrimSuffix(text, "```")
-	}
-	return strings.TrimSpace(text)
-}
 
 // MemoryIndex is a simple in-memory vector storage with hash-based caching and graph awareness.
 type MemoryIndex struct {
-	items  []VectorItem
-	hashes map[string]bool
-	graph  *graph.Graph // Reference to the dependency graph for hybrid search
+	items         []VectorItem
+	indexByID     map[string]int
+	contentHashes map[string]string
+	graph         *graph.Graph // Reference to the dependency graph for hybrid search
 }
 
 func NewMemoryIndex(g *graph.Graph) *MemoryIndex {
 	return &MemoryIndex{
-		items:  []VectorItem{},
-		hashes: make(map[string]bool),
-		graph:  g,
+		items:         []VectorItem{},
+		indexByID:     make(map[string]int),
+		contentHashes: make(map[string]string),
+		graph:         g,
 	}
 }
 
 func (m *MemoryIndex) Add(ctx context.Context, items []VectorItem) error {
 	for _, item := range items {
-		if !m.hashes[item.Chunk.ID] {
-			m.items = append(m.items, item)
-			m.hashes[item.Chunk.ID] = true
+		id := strings.TrimSpace(item.Chunk.ID)
+		if id == "" {
+			continue
 		}
+		if idx, ok := m.indexByID[id]; ok {
+			m.items[idx] = item
+		} else {
+			m.indexByID[id] = len(m.items)
+			m.items = append(m.items, item)
+		}
+		m.contentHashes[id] = item.Chunk.ContentHash
 	}
 	return nil
 }
@@ -243,18 +52,28 @@ func (m *MemoryIndex) Delete(ctx context.Context, ids []string) error {
 	}
 	idSet := make(map[string]bool)
 	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
 		idSet[id] = true
 	}
 
 	var newItems []VectorItem
 	for _, item := range m.items {
-		if !idSet[item.Chunk.ID] {
+		id := item.Chunk.ID
+		filePath := strings.TrimSpace(item.Chunk.FilePath)
+		if !idSet[id] && (filePath == "" || !idSet[filePath]) {
 			newItems = append(newItems, item)
 		} else {
-			delete(m.hashes, item.Chunk.ID)
+			delete(m.contentHashes, id)
 		}
 	}
 	m.items = newItems
+	m.indexByID = make(map[string]int, len(m.items))
+	for i, item := range m.items {
+		m.indexByID[item.Chunk.ID] = i
+	}
 	return nil
 }
 
@@ -286,11 +105,27 @@ func (m *MemoryIndex) Load(filepath string) error {
 	}
 
 	m.items = loadedItems
-	m.hashes = make(map[string]bool)
-	for _, item := range m.items {
-		m.hashes[item.Chunk.ID] = true
+	m.indexByID = make(map[string]int)
+	m.contentHashes = make(map[string]string)
+	for i, item := range m.items {
+		m.indexByID[item.Chunk.ID] = i
+		m.contentHashes[item.Chunk.ID] = item.Chunk.ContentHash
 	}
 	return nil
+}
+
+func (m *MemoryIndex) GetContentHashes(ctx context.Context, ids []string) (map[string]string, error) {
+	out := make(map[string]string)
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		if h, ok := m.contentHashes[id]; ok {
+			out[id] = h
+		}
+	}
+	return out, nil
 }
 
 // Search implements Indexer and performs hybrid search (vector + graph proximity).

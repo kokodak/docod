@@ -9,14 +9,20 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"docod/internal/knowledge"
+	jsonschema "github.com/santhosh-tekuri/jsonschema/v5"
 )
 
 const docModelSchemaVersion = "v0.1.0"
 
 var canonicalSectionOrder = []string{"overview", "key-features", "development"}
+var (
+	schemaCacheMu sync.Mutex
+	schemaCache   = make(map[string]*jsonschema.Schema)
+)
 
 type DocModel struct {
 	SchemaVersion string      `json:"schema_version"`
@@ -33,17 +39,27 @@ type ModelDoc struct {
 }
 
 type ModelSect struct {
-	ID          string      `json:"id"`
-	Title       string      `json:"title"`
-	Level       int         `json:"level"`
-	Order       int         `json:"order"`
-	ParentID    *string     `json:"parent_id"`
-	ContentMD   string      `json:"content_md"`
-	Summary     string      `json:"summary,omitempty"`
-	Status      string      `json:"status"`
-	Sources     []SourceRef `json:"sources"`
-	Hash        string      `json:"hash"`
-	LastUpdated *UpdateInfo `json:"last_updated,omitempty"`
+	ID          string       `json:"id"`
+	Title       string       `json:"title"`
+	Level       int          `json:"level"`
+	Order       int          `json:"order"`
+	ParentID    *string      `json:"parent_id"`
+	ContentMD   string       `json:"content_md"`
+	Summary     string       `json:"summary,omitempty"`
+	Status      string       `json:"status"`
+	Sources     []SourceRef  `json:"sources"`
+	Evidence    *EvidenceRef `json:"evidence,omitempty"`
+	Hash        string       `json:"hash"`
+	LastUpdated *UpdateInfo  `json:"last_updated,omitempty"`
+}
+
+type EvidenceRef struct {
+	Coverage    float64 `json:"coverage"`
+	Confidence  float64 `json:"confidence"`
+	ChunkCount  int     `json:"chunk_count"`
+	SourceCount int     `json:"source_count"`
+	QueryCount  int     `json:"query_count"`
+	LowEvidence bool    `json:"low_evidence"`
 }
 
 type SourceRef struct {
@@ -98,6 +114,9 @@ func LoadDocModel(path string) (*DocModel, error) {
 }
 
 func SaveDocModel(path string, model *DocModel) error {
+	if err := validateDocModelWithSchema(path, model); err != nil {
+		return err
+	}
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
 	}
@@ -221,6 +240,79 @@ func (m *DocModel) Validate() error {
 	return nil
 }
 
+func validateDocModelWithSchema(modelPath string, model *DocModel) error {
+	if model == nil {
+		return fmt.Errorf("doc model is nil")
+	}
+	if err := model.Validate(); err != nil {
+		return err
+	}
+
+	schemaPath := resolveDocModelSchemaPath(modelPath)
+	if schemaPath == "" {
+		return fmt.Errorf("doc model schema file not found")
+	}
+
+	schema, err := loadCompiledSchema(schemaPath)
+	if err != nil {
+		return fmt.Errorf("failed to compile doc model schema: %w", err)
+	}
+
+	var v any
+	raw, err := json.Marshal(model)
+	if err != nil {
+		return fmt.Errorf("failed to marshal doc model for schema validation: %w", err)
+	}
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return fmt.Errorf("failed to normalize doc model for schema validation: %w", err)
+	}
+	if err := schema.Validate(v); err != nil {
+		return fmt.Errorf("doc model schema validation failed: %w", err)
+	}
+	return nil
+}
+
+func resolveDocModelSchemaPath(modelPath string) string {
+	candidates := []string{
+		filepath.Join(filepath.Dir(modelPath), "doc_model.schema.json"),
+		filepath.Join("docs", "doc_model.schema.json"),
+	}
+	for _, c := range candidates {
+		if c == "" {
+			continue
+		}
+		if _, err := os.Stat(c); err == nil {
+			return c
+		}
+	}
+	return ""
+}
+
+func loadCompiledSchema(schemaPath string) (*jsonschema.Schema, error) {
+	abs, err := filepath.Abs(schemaPath)
+	if err != nil {
+		return nil, err
+	}
+
+	schemaCacheMu.Lock()
+	if cached, ok := schemaCache[abs]; ok {
+		schemaCacheMu.Unlock()
+		return cached, nil
+	}
+	schemaCacheMu.Unlock()
+
+	compiler := jsonschema.NewCompiler()
+	compiled, err := compiler.Compile("file://" + filepath.ToSlash(abs))
+	if err != nil {
+		return nil, err
+	}
+
+	schemaCacheMu.Lock()
+	schemaCache[abs] = compiled
+	schemaCacheMu.Unlock()
+	return compiled, nil
+}
+
 func (m *DocModel) SectionByID(id string) *ModelSect {
 	for i := range m.Sections {
 		if m.Sections[i].ID == id {
@@ -273,10 +365,45 @@ func RenderMarkdownFromModel(m *DocModel) string {
 }
 
 func BuildSourcesFromChunk(chunk knowledge.SearchChunk) []SourceRef {
+	if len(chunk.Sources) > 0 {
+		out := make([]SourceRef, 0, len(chunk.Sources))
+		for _, src := range chunk.Sources {
+			symbolID := strings.TrimSpace(src.SymbolID)
+			filePath := strings.TrimSpace(src.FilePath)
+			if symbolID == "" || filePath == "" {
+				continue
+			}
+			relation := normalizeSourceRelation(src.Relation)
+			confidence := src.Confidence
+			if confidence < 0 {
+				confidence = 0
+			}
+			if confidence > 1 {
+				confidence = 1
+			}
+			out = append(out, SourceRef{
+				SymbolID:   symbolID,
+				FilePath:   filePath,
+				StartLine:  clampPositive(src.StartLine),
+				EndLine:    clampPositive(src.EndLine),
+				Relation:   relation,
+				CommitSHA:  "HEAD",
+				Confidence: confidence,
+			})
+		}
+		if len(out) > 0 {
+			return out
+		}
+	}
+
+	filePath := chunk.FilePath
+	if strings.TrimSpace(filePath) == "" {
+		filePath = chunk.ID
+	}
 	return []SourceRef{
 		{
 			SymbolID:   chunk.ID,
-			FilePath:   chunk.ID,
+			FilePath:   filePath,
 			StartLine:  1,
 			EndLine:    1,
 			Relation:   "primary",
@@ -305,6 +432,22 @@ func MergeSources(existing []SourceRef, chunks []knowledge.SearchChunk) []Source
 		}
 	}
 	return out
+}
+
+func clampPositive(n int) int {
+	if n <= 0 {
+		return 1
+	}
+	return n
+}
+
+func normalizeSourceRelation(v string) string {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "primary", "dependency", "context":
+		return strings.ToLower(strings.TrimSpace(v))
+	default:
+		return "primary"
+	}
 }
 
 func sectionHash(s ModelSect) string {

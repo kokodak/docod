@@ -54,3 +54,31 @@ func TestResolveSectionConfidence(t *testing.T) {
 	assert.InDelta(t, 0.0, resolveSectionConfidence(plan, "invalid"), 0.001)
 	assert.InDelta(t, 0.0, resolveSectionConfidence(plan, "missing"), 0.001)
 }
+
+func TestShouldUseLLMForEvidence(t *testing.T) {
+	assert.True(t, shouldUseLLMForEvidence(nil))
+
+	assert.False(t, shouldUseLLMForEvidence(&EvidenceRef{
+		Coverage:    0.5,
+		Confidence:  0.7,
+		LowEvidence: true,
+	}))
+
+	assert.False(t, shouldUseLLMForEvidence(&EvidenceRef{
+		Coverage:    0.7,
+		Confidence:  0.9,
+		LowEvidence: false,
+	}))
+
+	assert.False(t, shouldUseLLMForEvidence(&EvidenceRef{
+		Coverage:    0.9,
+		Confidence:  0.55,
+		LowEvidence: false,
+	}))
+
+	assert.True(t, shouldUseLLMForEvidence(&EvidenceRef{
+		Coverage:    0.9,
+		Confidence:  0.8,
+		LowEvidence: false,
+	}))
+}

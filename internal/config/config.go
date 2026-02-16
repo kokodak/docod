@@ -14,11 +14,16 @@ type Config struct {
 		Root string `yaml:"root"`
 	} `yaml:"project"`
 	AI struct {
-		Provider     string `yaml:"provider"`
-		Model        string `yaml:"model"`         // embedding model
-		SummaryModel string `yaml:"summary_model"` // LLM model for summarization
-		APIKey       string `yaml:"api_key"`
-		Dimension    int    `yaml:"dimension"`
+		EmbeddingProvider string `yaml:"embedding_provider"`
+		EmbeddingModel    string `yaml:"embedding_model"`
+		EmbeddingAPIKey   string `yaml:"embedding_api_key"`
+		EmbeddingDim      int    `yaml:"embedding_dimension"`
+		LLMProvider       string `yaml:"llm_provider"`
+		LLMModel          string `yaml:"llm_model"`
+		LLMAPIKey         string `yaml:"llm_api_key"`
+		OpenAIBaseURL     string `yaml:"openai_base_url"`
+		LLMBaseURL        string `yaml:"llm_base_url"`
+		OllamaBaseURL     string `yaml:"ollama_base_url"`
 	} `yaml:"ai"`
 	Docs struct {
 		MaxLLMSections       int     `yaml:"max_llm_sections"`
@@ -46,13 +51,38 @@ func LoadConfig(path string) (*Config, error) {
 	}
 
 	// 3. Override with Environment Variables if present
-	if apiKey := os.Getenv("DOCOD_API_KEY"); apiKey != "" {
-		cfg.AI.APIKey = apiKey
+	if provider := os.Getenv("DOCOD_EMBEDDING_PROVIDER"); provider != "" {
+		cfg.AI.EmbeddingProvider = provider
 	}
-	if provider := os.Getenv("DOCOD_AI_PROVIDER"); provider != "" {
-		cfg.AI.Provider = provider
+	if model := os.Getenv("DOCOD_EMBEDDING_MODEL"); model != "" {
+		cfg.AI.EmbeddingModel = model
 	}
-
+	if key := os.Getenv("DOCOD_EMBEDDING_API_KEY"); key != "" {
+		cfg.AI.EmbeddingAPIKey = key
+	}
+	if dim := os.Getenv("DOCOD_EMBEDDING_DIMENSION"); dim != "" {
+		if n, err := strconv.Atoi(strings.TrimSpace(dim)); err == nil {
+			cfg.AI.EmbeddingDim = n
+		}
+	}
+	if provider := os.Getenv("DOCOD_LLM_PROVIDER"); provider != "" {
+		cfg.AI.LLMProvider = provider
+	}
+	if model := os.Getenv("DOCOD_LLM_MODEL"); model != "" {
+		cfg.AI.LLMModel = model
+	}
+	if llmKey := os.Getenv("DOCOD_LLM_API_KEY"); llmKey != "" {
+		cfg.AI.LLMAPIKey = llmKey
+	}
+	if baseURL := os.Getenv("DOCOD_OPENAI_BASE_URL"); baseURL != "" {
+		cfg.AI.OpenAIBaseURL = baseURL
+	}
+	if baseURL := os.Getenv("DOCOD_LLM_BASE_URL"); baseURL != "" {
+		cfg.AI.LLMBaseURL = baseURL
+	}
+	if baseURL := os.Getenv("DOCOD_OLLAMA_BASE_URL"); baseURL != "" {
+		cfg.AI.OllamaBaseURL = baseURL
+	}
 	// Docs runtime options with env overrides
 	if v := os.Getenv("DOCOD_MAX_LLM_SECTIONS"); v != "" {
 		if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {

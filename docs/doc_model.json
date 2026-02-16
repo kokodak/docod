@@ -16,14 +16,1436 @@
       "level": 1,
       "order": 0,
       "parent_id": null,
-      "content_md": "# Overview\n\n## Purpose\n\n`docod` provides incremental documentation for evolving codebases.\nIt focuses on keeping official technical docs aligned with code changes while minimizing manual effort.\n\n## Architecture\n\n`docod` builds a code graph from parsed symbols and uses that graph to determine impacted documentation sections.\nFor semantic writing tasks, generation is scoped to selected sections only.\n\n## System Diagram\n\n```mermaid\ngraph TD\n  A[Code Changes] --> B[AST Extraction]\n  B --> C[Dependency Graph]\n  C --> D[Section Impact Selection]\n  D --> E[Doc Model Update]\n  E --> F[Markdown Render]\n```",
-      "summary": "Purpose, architecture, and high-level flow of docod.",
+      "content_md": "# Overview\n\nThe `BuildDefaultFullDocPlan` function is integral to the core architecture's behavior. The `GenerateArchitectureFlow` method constructs a high-level architecture flow by analyzing semantically relevant symbols. Complementing this, `GenerateArchitectureSnapshot` produces a compact component graph, thereby avoiding verbose symbol-level outputs. The `buildOverviewSection` method also contributes to the core architecture's functionality.\n\n```mermaid\ngraph TD\n    entry[\"Entry/API\"] -- 5 --\u003e domain[\"Domain Logic\"]\n    entry[\"Entry/API\"] -- 2 --\u003e app[\"Orchestration\"]\n    app[\"Orchestration\"] -- 4 --\u003e domain[\"Domain Logic\"]\n    domain[\"Domain Logic\"] -- 11 --\u003e data[\"Storage/Index\"]\n    domain[\"Domain Logic\"] -- 2 --\u003e output[\"Output\"]\n    app[\"Orchestration\"] -- 1 --\u003e data[\"Storage/Index\"]\n```\n\n## End-to-End Flow\n\n```mermaid\ngraph LR\n    domain[\"Domain Logic\\\\ngenerator, extractor\"]\n    data[\"Storage/Index\\\\nknowledge\"]\n    output[\"Output\\\\nknowledge, generator\"]\n    domain --\u003e output\n    domain --\u003e data\n    data --\u003e output\n```",
+      "summary": "The `BuildDefaultFullDocPlan` function is integral to the core architecture's behavior. The `GenerateArchitectureFlow` m",
       "status": "active",
-      "sources": [],
-      "hash": "sha256:reset-overview",
+      "sources": [
+        {
+          "symbol_id": "go/generator:method:QueryText:8917a186b2509112",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/full_doc_plan.go",
+          "start_line": 77,
+          "end_line": 82,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:BuildDefaultFullDocPlan:82eeeb75dfebc843",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/full_doc_plan.go",
+          "start_line": 24,
+          "end_line": 63,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:method:SectionByID:dd211013d85b8f95",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/full_doc_plan.go",
+          "start_line": 65,
+          "end_line": 75,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:FullDocPlan:163298bf844090c7",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/full_doc_plan.go",
+          "start_line": 6,
+          "end_line": 8,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:SectionDocPlan:50fc3ab1742e4fb6",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/full_doc_plan.go",
+          "start_line": 11,
+          "end_line": 22,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:method:GenerateArchitectureSnapshot:bf7f73bde7868b0a",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/mermaid.go",
+          "start_line": 278,
+          "end_line": 374,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:edge:5489c53c9d801d2a",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/mermaid.go",
+          "start_line": 279,
+          "end_line": 282,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:pkgNode:db77ea073d2ee92d",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/mermaid.go",
+          "start_line": 311,
+          "end_line": 314,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:method:GenerateArchitectureFlow:5653ea4cc143283c",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/mermaid.go",
+          "start_line": 70,
+          "end_line": 201,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:method:GenerateFlowChart:dd4530bd393dcefc",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/mermaid.go",
+          "start_line": 48,
+          "end_line": 67,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:method:generatePackageFlow:86d1efd6abc91942",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/mermaid.go",
+          "start_line": 231,
+          "end_line": 275,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:eNode:49e9e7d16c89e23d",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/mermaid.go",
+          "start_line": 333,
+          "end_line": 336,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:pkgNode:bc236f37d22a0a06",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/mermaid.go",
+          "start_line": 244,
+          "end_line": 247,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:topStageExamples:4a0f6deb0951622a",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/mermaid.go",
+          "start_line": 203,
+          "end_line": 229,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:bestStageForChunk:bb7e256c13260d60",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/mermaid.go",
+          "start_line": 376,
+          "end_line": 397,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:method:GeneratePackageDiagram:37cf0bf3a4d77e2e",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/mermaid.go",
+          "start_line": 14,
+          "end_line": 46,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:pair:01664864764ff829",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/mermaid.go",
+          "start_line": 207,
+          "end_line": 210,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:sanitizeMermaidID:68ddbcbfb735b4c0",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/mermaid.go",
+          "start_line": 399,
+          "end_line": 413,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:MermaidGenerator:df3d67c5c9234302",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/mermaid.go",
+          "start_line": 12,
+          "end_line": 12,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:edgeKey:20c1f6735623d012",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/mermaid.go",
+          "start_line": 85,
+          "end_line": 88,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:claimHeading:6458b19bc5187850",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/section_draft.go",
+          "start_line": 212,
+          "end_line": 227,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:filterDraftSemanticChunks:1e0b944574a88144",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/section_draft.go",
+          "start_line": 276,
+          "end_line": 288,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:normalizeClaimText:9a1b65df72a3b98d",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/section_draft.go",
+          "start_line": 290,
+          "end_line": 304,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:computeClaimConfidence:14053e6844657f8d",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/section_draft.go",
+          "start_line": 186,
+          "end_line": 210,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:RenderSectionDraftMarkdown:a9d9f3910ab218da",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/section_draft.go",
+          "start_line": 128,
+          "end_line": 169,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:SerializeSectionDraft:be673a318aa195c0",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/section_draft.go",
+          "start_line": 268,
+          "end_line": 274,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:maxFloat:be42524062ab6da8",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/section_draft.go",
+          "start_line": 229,
+          "end_line": 234,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:BuildSectionDraft:818f3e7e9314fb8d",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/section_draft.go",
+          "start_line": 29,
+          "end_line": 105,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:toParagraph:15dfb7ab0d230fe9",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/section_draft.go",
+          "start_line": 253,
+          "end_line": 262,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:DraftClaim:2f6778c03ce6c910",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/section_draft.go",
+          "start_line": 22,
+          "end_line": 27,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:ValidateSectionDraft:98fad026ef7f1664",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/section_draft.go",
+          "start_line": 107,
+          "end_line": 126,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:SectionDraft:31c1075d9761f05e",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/section_draft.go",
+          "start_line": 13,
+          "end_line": 19,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:summarizeDraft:272b07de660f12f0",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/section_draft.go",
+          "start_line": 171,
+          "end_line": 184,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:toSentence:769eb2ca8d8954a4",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/section_draft.go",
+          "start_line": 264,
+          "end_line": 266,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:topClaimsByConfidence:d519a25b571989e2",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/section_draft.go",
+          "start_line": 236,
+          "end_line": 251,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:method:buildOverviewSection:50be0e9a7c4f46ae",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/markdown.go",
+          "start_line": 455,
+          "end_line": 472,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/crawler:struct:Crawler:4127617f65e93c80",
+          "file_path": "/Users/kokodak/Documents/docod/internal/crawler/crawler.go",
+          "start_line": 11,
+          "end_line": 14,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/crawler:method:ScanProject:acb69828ee16535a",
+          "file_path": "/Users/kokodak/Documents/docod/internal/crawler/crawler.go",
+          "start_line": 26,
+          "end_line": 61,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/crawler:function:NewCrawler:7b59f7184149084b",
+          "file_path": "/Users/kokodak/Documents/docod/internal/crawler/crawler.go",
+          "start_line": 17,
+          "end_line": 22,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:struct:Evidence:c7670bd2d5124280",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/base.go",
+          "start_line": 33,
+          "end_line": 37,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:interface:LanguageExtractor:d3a465d501c74a5d",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/base.go",
+          "start_line": 40,
+          "end_line": 44,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:struct:CodeUnit:c6e1f9ab50b5a9de",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/base.go",
+          "start_line": 6,
+          "end_line": 21,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:struct:Relation:9646c837919ebf5c",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/base.go",
+          "start_line": 24,
+          "end_line": 30,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:struct:GoParam:06eb94b29bc0b584",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/go_extractor.go",
+          "start_line": 155,
+          "end_line": 158,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:method:extractBodyRelations:77c7bd1ccc609d87",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/go_extractor.go",
+          "start_line": 475,
+          "end_line": 520,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:struct:GoTypeDetails:517e4a89a4daee7e",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/go_extractor.go",
+          "start_line": 137,
+          "end_line": 139,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:method:extractFunctionUnit:61b59991c47aeb7f",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/go_extractor.go",
+          "start_line": 367,
+          "end_line": 473,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:method:ExtractUnit:d8df6fe10bc2b0c7",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/go_extractor.go",
+          "start_line": 29,
+          "end_line": 66,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:struct:GoReturn:845a789bdfd12a92",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/go_extractor.go",
+          "start_line": 160,
+          "end_line": 163,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:struct:GoExtractor:2d9702212e28366d",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/go_extractor.go",
+          "start_line": 13,
+          "end_line": 13,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:struct:GoVarDetails:b650cd04dd7c921d",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/go_extractor.go",
+          "start_line": 150,
+          "end_line": 153,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:method:extractReturns:d202318282659218",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/go_extractor.go",
+          "start_line": 691,
+          "end_line": 715,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:method:inferRole:74228d901d97a57f",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/go_extractor.go",
+          "start_line": 86,
+          "end_line": 126,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:struct:GoField:3d99a89d68cfe024",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/go_extractor.go",
+          "start_line": 165,
+          "end_line": 169,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:function:cleanDocComment:aed2b2856d80e251",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/go_extractor.go",
+          "start_line": 717,
+          "end_line": 731,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:struct:GoConstDetails:483d60a02fe3ee61",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/go_extractor.go",
+          "start_line": 145,
+          "end_line": 148,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:method:extractConstUnit:38a2f60c15761012",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/go_extractor.go",
+          "start_line": 566,
+          "end_line": 599,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:method:calculateHash:1b30f73cdef2ffbf",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/go_extractor.go",
+          "start_line": 68,
+          "end_line": 72,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:method:extractVarUnit:79e1c668f9047c22",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/go_extractor.go",
+          "start_line": 601,
+          "end_line": 631,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:variable:visit:6a86b64d858bb5ac",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/go_extractor.go",
+          "start_line": 478,
+          "end_line": 478,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:struct:GoInterfaceDetails:8143a136296471d2",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/go_extractor.go",
+          "start_line": 141,
+          "end_line": 143,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:function:extractBaseType:e9d2bc138df7f710",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/go_extractor.go",
+          "start_line": 555,
+          "end_line": 564,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:method:extractStructDetails:54491280d77c95dd",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/go_extractor.go",
+          "start_line": 262,
+          "end_line": 317,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:function:isUserDefinedType:e6bd9f09f8742799",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/go_extractor.go",
+          "start_line": 543,
+          "end_line": 553,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:method:sanitizeValue:d5394a50ec83d8dc",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/go_extractor.go",
+          "start_line": 74,
+          "end_line": 84,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:function:isNoise:a6e1185a02f7e220",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/go_extractor.go",
+          "start_line": 522,
+          "end_line": 541,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:struct:GoFunctionDetails:a82a1f5693c5f349",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/go_extractor.go",
+          "start_line": 130,
+          "end_line": 135,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:method:GetQuery:3af719b0cc2dd127",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/go_extractor.go",
+          "start_line": 19,
+          "end_line": 27,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:method:GetLanguage:6946104a6f1985dd",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/go_extractor.go",
+          "start_line": 15,
+          "end_line": 17,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:method:extractDocComment:d4088e2893838865",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/go_extractor.go",
+          "start_line": 633,
+          "end_line": 648,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:method:extractParams:dfec686d190c6c9a",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/go_extractor.go",
+          "start_line": 650,
+          "end_line": 689,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:method:extractTypeUnit:f3ca8cffc50655e3",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/go_extractor.go",
+          "start_line": 173,
+          "end_line": 260,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:method:extractInterfaceDetails:26319ca602e99fb6",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/go_extractor.go",
+          "start_line": 319,
+          "end_line": 365,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/extractor:variable:visit:ac88336ef0390ff5",
+          "file_path": "/Users/kokodak/Documents/docod/internal/extractor/go_extractor.go",
+          "start_line": 324,
+          "end_line": 324,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:summarizeEvidenceChunk:9845585a4c9b2a33",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/evidence_hydrator.go",
+          "start_line": 225,
+          "end_line": 245,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:claimHydrationWeight:c13f0b902e64857b",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/evidence_hydrator.go",
+          "start_line": 135,
+          "end_line": 147,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:BuildDraftLLMContext:4fb9cd7bf0bef88d",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/evidence_hydrator.go",
+          "start_line": 32,
+          "end_line": 37,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:hydrateSourceBlock:424ad3f5dfbb0a4f",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/evidence_hydrator.go",
+          "start_line": 159,
+          "end_line": 223,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:defaultDraftLLMBudget:9b41ce33c440e21e",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/evidence_hydrator.go",
+          "start_line": 20,
+          "end_line": 27,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:isFlowClaim:5db86bc9c8261ff3",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/evidence_hydrator.go",
+          "start_line": 149,
+          "end_line": 157,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:buildLayerBContext:4e2c6a8121677204",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/evidence_hydrator.go",
+          "start_line": 70,
+          "end_line": 112,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:draftLLMBudget:5c761322c2061063",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/evidence_hydrator.go",
+          "start_line": 13,
+          "end_line": 18,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:collectHydratedBlocks:8fbdcf171401a886",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/evidence_hydrator.go",
+          "start_line": 114,
+          "end_line": 133,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:buildLayerAContext:3068ae0325db4bc9",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/evidence_hydrator.go",
+          "start_line": 39,
+          "end_line": 68,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:PrepareChunksForFiles:6b6bd25c694a6b38",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 263,
+          "end_line": 379,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:SearchByText:39a2a7d5e35d6e84",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 218,
+          "end_line": 243,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:function:shouldSegmentChunk:038b5f66d8ffd064",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 546,
+          "end_line": 553,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:IndexIncremental:1b1f64fb5a39a81f",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 99,
+          "end_line": 101,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:Embedder:84f1229d5a8ae11c",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 74,
+          "end_line": 76,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:GetChunkByID:f3c0084cefdfa8e9",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 457,
+          "end_line": 463,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:Indexer:f649788265762335",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 78,
+          "end_line": 80,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:function:isExported:1390e83910edbac6",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 381,
+          "end_line": 386,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:getConciseSignature:9a8ca8946821936b",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 585,
+          "end_line": 599,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:function:chunkPriority:65cb5503da840b7b",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 639,
+          "end_line": 658,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:struct:SearchChunk:c0eef298e5ed70cb",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 13,
+          "end_line": 26,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:embedChunks:16655137d6aa4298",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 190,
+          "end_line": 210,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:isDocRelevantNode:5c6b17b5ad29ee96",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 390,
+          "end_line": 398,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:IndexAll:eb463deea4d52375",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 83,
+          "end_line": 85,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:PrepareSearchChunks:7f293af61703a318",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 247,
+          "end_line": 260,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:ToEmbeddableText:d39059b43a8237ea",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 38,
+          "end_line": 52,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:function:NewEngine:a675c6eb2de3028f",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 66,
+          "end_line": 72,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:function:minInt:346108e380177ea7",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 660,
+          "end_line": 665,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:struct:ChunkSource:2d4d9388f51e98bd",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 28,
+          "end_line": 35,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:function:lineCount:78314ef93090b057",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 555,
+          "end_line": 560,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:SearchRelated:aa62411856ea4e87",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 213,
+          "end_line": 215,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:reachesExportedSymbol:7471e441135fbcbb",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 400,
+          "end_line": 448,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:struct:Engine:f54edde4b4557f5d",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 55,
+          "end_line": 59,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:struct:qItem:b5a518e4711a2cea",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 404,
+          "end_line": 407,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:function:sortChunksByPriority:7d7b552d580179f3",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 625,
+          "end_line": 637,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:struct:IndexingOptions:7462e853ffe0784b",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 61,
+          "end_line": 63,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:function:truncateChunkContent:21355fe86587ecd9",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 609,
+          "end_line": 614,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:GetNodeByID:5c88091f4821776e",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 451,
+          "end_line": 454,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:IndexIncrementalWithOptions:7ebdd9975a835d0e",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 104,
+          "end_line": 129,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:function:containsChunkID:3e2ca5b25964be13",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 616,
+          "end_line": 623,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:CreateChunk:58d3ffe42bb5da17",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 466,
+          "end_line": 499,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:IndexAllWithOptions:46272697ea836de2",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 88,
+          "end_line": 96,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:createSymbolChunksForNode:28e57c60eb61ebb9",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 501,
+          "end_line": 544,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:function:limitChunksByBudget:e1abf37d75c68f51",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 131,
+          "end_line": 188,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:function:segmentSources:2ef50cf4792b7f48",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/engine.go",
+          "start_line": 562,
+          "end_line": 583,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:SummarizeFullDoc:c1a99c53e9412bde",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 150,
+          "end_line": 153,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:function:NewGeminiSummarizer:4b4a8929176d7898",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 135,
+          "end_line": 148,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:function:cleanMarkdownOutput:029f8e0e5cdd3389",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 207,
+          "end_line": 217,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:GenerateNewSection:76474a1d83a3ecc5",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 165,
+          "end_line": 168,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:bfsDistances:0087a226191c25c5",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 363,
+          "end_line": 406,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:Add:8f854e4088102514",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 234,
+          "end_line": 242,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:Delete:7e2d88ec5af81270",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 245,
+          "end_line": 264,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:UpdateDocSection:bdc695d0cd5c3468",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 155,
+          "end_line": 158,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:generate:c290f4d1894e7010",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 194,
+          "end_line": 205,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:struct:queueItem:c0d18b235373950b",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 370,
+          "end_line": 373,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:searchWithSource:8a2c48ae5eb8d704",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 307,
+          "end_line": 360,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:struct:GeminiEmbedder:141ef5c733116a3a",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 20,
+          "end_line": 24,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:FindInsertionPoint:02187d4987407d25",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 170,
+          "end_line": 192,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:struct:GeminiSummarizer:2c6fa27b475efd76",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 129,
+          "end_line": 133,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:RenderSectionFromDraft:403d877ab57bfe33",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 160,
+          "end_line": 163,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:Dimension:058e5348f4877835",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 124,
+          "end_line": 126,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:Search:5613ed8f861f75c4",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 302,
+          "end_line": 304,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:function:isRateLimitError:e80d54d542ffd0e9",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 111,
+          "end_line": 122,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:Save:ddae62f2eefce823",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 267,
+          "end_line": 275,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:Load:9c3cb80783848812",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 278,
+          "end_line": 299,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:Embed:f75f12bdfce00da2",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 53,
+          "end_line": 109,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:struct:MemoryIndex:4331c942316df409",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 220,
+          "end_line": 224,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:struct:scoreItem:93f3f68bd7a04b0c",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 312,
+          "end_line": 315,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:function:cosineSimilarity:1bef0243d9fd70fa",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 408,
+          "end_line": 422,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:function:NewGeminiEmbedder:a3546ef7ee4c129e",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 26,
+          "end_line": 39,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:function:NewMemoryIndex:5891dd891e6e33ae",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 226,
+          "end_line": 232,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:BuildRenderFromDraftPrompt:aa95dae1b91dc75b",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/prompts.go",
+          "start_line": 162,
+          "end_line": 195,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:BuildUnitPrompt:949d28d7d85d688c",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/prompts.go",
+          "start_line": 202,
+          "end_line": 205,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:struct:PromptBuilder:6c8af03a0b8a61e2",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/prompts.go",
+          "start_line": 9,
+          "end_line": 9,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:BuildNewSectionPrompt:628feb3ef35b63c7",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/prompts.go",
+          "start_line": 111,
+          "end_line": 130,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:BuildUpdateDocPrompt:286ca3f62f71fe6f",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/prompts.go",
+          "start_line": 68,
+          "end_line": 109,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:BuildPackagePrompt:3139733b06becbda",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/prompts.go",
+          "start_line": 197,
+          "end_line": 200,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:BuildInsertionPointPrompt:7b375999ed64b024",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/prompts.go",
+          "start_line": 132,
+          "end_line": 160,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:BuildFullDocPrompt:f4756ae06bbb6c7c",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/prompts.go",
+          "start_line": 13,
+          "end_line": 66,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:struct:VectorItem:cbed3a968c35fe9c",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/types.go",
+          "start_line": 23,
+          "end_line": 26,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:interface:Indexer:c8e946ff45ef7c6a",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/types.go",
+          "start_line": 29,
+          "end_line": 33,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:interface:Embedder:0f3da4ab29689c79",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/types.go",
+          "start_line": 8,
+          "end_line": 11,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:interface:Summarizer:bd887d52a1110d4c",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/types.go",
+          "start_line": 14,
+          "end_line": 20,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        }
+      ],
+      "evidence": {
+        "coverage": 1,
+        "confidence": 1,
+        "chunk_count": 16,
+        "source_count": 161,
+        "query_count": 5,
+        "low_evidence": false
+      },
+      "hash": "sha256:fd5809243db4046a954dfa7631df23fe7dfa6288f41c2c786402d34ceb07dc02",
       "last_updated": {
         "commit_sha": "HEAD",
-        "timestamp": "2026-02-06T00:00:00Z"
+        "timestamp": "2026-02-16T10:28:35Z"
       }
     },
     {
@@ -32,14 +1454,68 @@
       "level": 1,
       "order": 1,
       "parent_id": null,
-      "content_md": "# Key Features\n\n## Incremental Section Updates\n\nOnly impacted sections should be updated on each sync, instead of regenerating the entire document.\n\n### Example\n\n```bash\ndocod sync\n```\n\n## Model-Driven Documentation\n\n`docs/doc_model.json` is the source of truth for section structure and ordering.\n`docs/documentation.md` is rendered from the model.\n\n### Example\n\n```bash\ndocod sync --help\n```",
-      "summary": "Incremental updates and model-driven documentation workflow.",
+      "content_md": "# Key Features\n\nDocumentation Generation: Generate and maintain the document model and markdown outputs. GenerateDocs builds docs from KG/index retrieval and writes model + markdown. Section Planning: Prioritize which documentation sections should be updated first. Implements behavior derived from graph-linked source evidence.\n\n## Documentation Generation\n\nDocumentation Generation: Generate and maintain the document model and markdown outputs. GenerateDocs builds docs from KG/index retrieval and writes model + markdown.\n\n## Section Planning\n\nSection Planning: Prioritize which documentation sections should be updated first. Implements behavior derived from graph-linked source evidence.\n\n## Semantic Retrieval\n\nSemantic Retrieval: Retrieve the most relevant code evidence for documentation sections. GenerateArchitectureFlow builds a high-level architecture flow from semantically relevant symbols.\n\n## Source Ingestion\n\nSource Ingestion: Collect and normalize source code units into analysis-ready artifacts. FromCodeUnit converts extractor output into graph-domain Symbol.\n\n## Evidence Limitations\n\nThe current section is based on limited evidence from indexed chunks. Validate details against source references before relying on this as normative behavior.",
+      "summary": "Documentation Generation: Generate and maintain the document model and markdown outputs. GenerateDocs builds docs from K",
       "status": "active",
-      "sources": [],
-      "hash": "sha256:reset-key-features",
+      "sources": [
+        {
+          "symbol_id": "go/generator:function:BuildDefaultFullDocPlan:82eeeb75dfebc843",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/full_doc_plan.go",
+          "start_line": 24,
+          "end_line": 63,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:method:GenerateArchitectureFlow:5653ea4cc143283c",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/mermaid.go",
+          "start_line": 70,
+          "end_line": 201,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:method:GenerateDocs:f592965a2ab738e6",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/markdown.go",
+          "start_line": 37,
+          "end_line": 106,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:RenderSectionDraftMarkdown:a9d9f3910ab218da",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/section_draft.go",
+          "start_line": 128,
+          "end_line": 169,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/graph:function:FromCodeUnit:14a46da832f7c572",
+          "file_path": "/Users/kokodak/Documents/docod/internal/graph/adapter.go",
+          "start_line": 6,
+          "end_line": 48,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        }
+      ],
+      "evidence": {
+        "coverage": 0.625,
+        "confidence": 1,
+        "chunk_count": 5,
+        "source_count": 5,
+        "query_count": 11,
+        "low_evidence": true
+      },
+      "hash": "sha256:58ee4b9daed3c645c23bc128587f0d1790eeeea9beae4bb013b6ad10d60751f7",
       "last_updated": {
         "commit_sha": "HEAD",
-        "timestamp": "2026-02-06T00:00:00Z"
+        "timestamp": "2026-02-16T10:28:35Z"
       }
     },
     {
@@ -48,14 +1524,1490 @@
       "level": 1,
       "order": 2,
       "parent_id": null,
-      "content_md": "# Development\n\n## Quick Start\n\n1. Configure `config.yaml`.\n2. Run `docod sync`.\n3. Review generated markdown changes.\n\n## Configuration Notes\n\n- Keep API keys in environment variables.\n- Tune `docs.max_llm_sections` to control generation cost.\n- Enable optional routing features only when needed.",
-      "summary": "Setup and configuration guidance for running docod.",
+      "content_md": "# Development\n\nThe system's runtime setup and operational behavior are influenced by the `buildDevelopmentSection` method and the `configTableMarkdown` functionality. Additionally, the `NewGeminiSummarizer` function impacts these aspects.\n\n```mermaid\ngraph LR\n    A[buildDevelopmentSection] --\u003e B(Runtime Setup/Operational Behavior)\n    C[configTableMarkdown] --\u003e B\n    D[NewGeminiSummarizer] --\u003e B\n```\n\n## Architecture Snapshot\n\n```mermaid\ngraph LR\n    generator[\"generator\"]\n    knowledge[\"knowledge\"]\n    config[\"config\"]\n    crawler[\"crawler\"]\n    main[\"main\"]\n    pipeline[\"pipeline\"]\n    main --\u003e knowledge\n    pipeline --\u003e knowledge\n```",
+      "summary": "The system's runtime setup and operational behavior are influenced by the `buildDevelopmentSection` method and the `conf",
       "status": "active",
-      "sources": [],
-      "hash": "sha256:reset-development",
+      "sources": [
+        {
+          "symbol_id": "go/generator:method:QueryText:8917a186b2509112",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/full_doc_plan.go",
+          "start_line": 77,
+          "end_line": 82,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:BuildDefaultFullDocPlan:82eeeb75dfebc843",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/full_doc_plan.go",
+          "start_line": 24,
+          "end_line": 63,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:method:SectionByID:dd211013d85b8f95",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/full_doc_plan.go",
+          "start_line": 65,
+          "end_line": 75,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:FullDocPlan:163298bf844090c7",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/full_doc_plan.go",
+          "start_line": 6,
+          "end_line": 8,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:SectionDocPlan:50fc3ab1742e4fb6",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/full_doc_plan.go",
+          "start_line": 11,
+          "end_line": 22,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:filterChunksForSection:e7ccf31d32dfc82b",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/markdown.go",
+          "start_line": 676,
+          "end_line": 708,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:method:generateSectionContent:de0a5524a8b39248",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/markdown.go",
+          "start_line": 303,
+          "end_line": 357,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:method:tryRenderDraftWithLLM:ec2c9bf30ac281f7",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/markdown.go",
+          "start_line": 381,
+          "end_line": 403,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:applyLowEvidencePolicy:84bedfb669fa16c4",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/markdown.go",
+          "start_line": 710,
+          "end_line": 720,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:method:selectSectionEvidence:377201509a20db71",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/markdown.go",
+          "start_line": 163,
+          "end_line": 214,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:upsertSectionMermaid:b331291f952fc37e",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/markdown.go",
+          "start_line": 649,
+          "end_line": 674,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:sectionScaffold:3a07bb209833f825",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/markdown.go",
+          "start_line": 405,
+          "end_line": 425,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:topNChunks:47427173e9c23e6c",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/markdown.go",
+          "start_line": 566,
+          "end_line": 578,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:method:GenerateDocs:f592965a2ab738e6",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/markdown.go",
+          "start_line": 37,
+          "end_line": 106,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:method:buildOverviewSection:50be0e9a7c4f46ae",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/markdown.go",
+          "start_line": 455,
+          "end_line": 472,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:truncate:ca61a56167976460",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/markdown.go",
+          "start_line": 580,
+          "end_line": 585,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:stripPromptArtifacts:d7ee35472c49a08b",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/markdown.go",
+          "start_line": 722,
+          "end_line": 739,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:sanitizeGeneratedSection:4f89be942cc63248",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/markdown.go",
+          "start_line": 587,
+          "end_line": 604,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:sectionEvidencePack:52cad6398de58427",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/markdown.go",
+          "start_line": 22,
+          "end_line": 26,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:NewMarkdownGenerator:bd0613bce292ca01",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/markdown.go",
+          "start_line": 28,
+          "end_line": 34,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:inferProjectLabel:bccea09d5632412a",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/markdown.go",
+          "start_line": 515,
+          "end_line": 536,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:method:configTableMarkdown:759abd3c674aeab6",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/markdown.go",
+          "start_line": 538,
+          "end_line": 564,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:method:buildDevelopmentSection:5401cf22e9cd3889",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/markdown.go",
+          "start_line": 499,
+          "end_line": 513,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:MarkdownGenerator:59195ed847256205",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/markdown.go",
+          "start_line": 16,
+          "end_line": 20,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:method:tryLLMSectionRewrite:d992ee5685b5533a",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/markdown.go",
+          "start_line": 359,
+          "end_line": 379,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:method:buildSchemaScaffoldModel:ca4d48b59acd8661",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/markdown.go",
+          "start_line": 108,
+          "end_line": 161,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:method:buildFeatureSection:e2e1ef49dab86b37",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/markdown.go",
+          "start_line": 474,
+          "end_line": 497,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:fallbackSectionPlan:7f10f86cc24104c3",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/markdown.go",
+          "start_line": 216,
+          "end_line": 225,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:heuristicSelectChunks:74fdd316a631be2a",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/markdown.go",
+          "start_line": 227,
+          "end_line": 283,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:isLowQualitySection:9c52ff27a22bb448",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/markdown.go",
+          "start_line": 606,
+          "end_line": 629,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:scored:4148f5c87ea317c6",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/markdown.go",
+          "start_line": 238,
+          "end_line": 241,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:method:buildFallbackSection:4cd9253d9e1047b0",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/markdown.go",
+          "start_line": 442,
+          "end_line": 453,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:mergeChunkLists:f2bc608853a08c20",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/markdown.go",
+          "start_line": 285,
+          "end_line": 301,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:method:enrichSectionWithDiagrams:76dce48c7f91ebf7",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/markdown.go",
+          "start_line": 427,
+          "end_line": 440,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:SummarizeFullDoc:c1a99c53e9412bde",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 150,
+          "end_line": 153,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:function:NewGeminiSummarizer:4b4a8929176d7898",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 135,
+          "end_line": 148,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:function:cleanMarkdownOutput:029f8e0e5cdd3389",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 207,
+          "end_line": 217,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:GenerateNewSection:76474a1d83a3ecc5",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 165,
+          "end_line": 168,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:bfsDistances:0087a226191c25c5",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 363,
+          "end_line": 406,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:Add:8f854e4088102514",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 234,
+          "end_line": 242,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:Delete:7e2d88ec5af81270",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 245,
+          "end_line": 264,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:UpdateDocSection:bdc695d0cd5c3468",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 155,
+          "end_line": 158,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:generate:c290f4d1894e7010",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 194,
+          "end_line": 205,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:struct:queueItem:c0d18b235373950b",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 370,
+          "end_line": 373,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:searchWithSource:8a2c48ae5eb8d704",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 307,
+          "end_line": 360,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:struct:GeminiEmbedder:141ef5c733116a3a",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 20,
+          "end_line": 24,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:FindInsertionPoint:02187d4987407d25",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 170,
+          "end_line": 192,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:struct:GeminiSummarizer:2c6fa27b475efd76",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 129,
+          "end_line": 133,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:RenderSectionFromDraft:403d877ab57bfe33",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 160,
+          "end_line": 163,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:Dimension:058e5348f4877835",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 124,
+          "end_line": 126,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:Search:5613ed8f861f75c4",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 302,
+          "end_line": 304,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:function:isRateLimitError:e80d54d542ffd0e9",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 111,
+          "end_line": 122,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:Save:ddae62f2eefce823",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 267,
+          "end_line": 275,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:Load:9c3cb80783848812",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 278,
+          "end_line": 299,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:method:Embed:f75f12bdfce00da2",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 53,
+          "end_line": 109,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:struct:MemoryIndex:4331c942316df409",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 220,
+          "end_line": 224,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:struct:scoreItem:93f3f68bd7a04b0c",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 312,
+          "end_line": 315,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:function:cosineSimilarity:1bef0243d9fd70fa",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 408,
+          "end_line": 422,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:function:NewGeminiEmbedder:a3546ef7ee4c129e",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 26,
+          "end_line": 39,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/knowledge:function:NewMemoryIndex:5891dd891e6e33ae",
+          "file_path": "/Users/kokodak/Documents/docod/internal/knowledge/implementations.go",
+          "start_line": 226,
+          "end_line": 232,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/pipeline:function:sectionConfidenceByImpact:988d9aa599ab1aa4",
+          "file_path": "/Users/kokodak/Documents/docod/internal/pipeline/incremental_sync.go",
+          "start_line": 435,
+          "end_line": 447,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/pipeline:method:minConfidenceForLLM:8a869cf7c2790edb",
+          "file_path": "/Users/kokodak/Documents/docod/internal/pipeline/incremental_sync.go",
+          "start_line": 449,
+          "end_line": 462,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/pipeline:function:splitUpdatedDeleted:f8c5d60f30ec06b3",
+          "file_path": "/Users/kokodak/Documents/docod/internal/pipeline/incremental_sync.go",
+          "start_line": 377,
+          "end_line": 387,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/pipeline:function:collectGraphFiles:db2fcb8fb1a17169",
+          "file_path": "/Users/kokodak/Documents/docod/internal/pipeline/incremental_sync.go",
+          "start_line": 389,
+          "end_line": 401,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/pipeline:method:loadDocModelForPlanning:ca94f6a25099d491",
+          "file_path": "/Users/kokodak/Documents/docod/internal/pipeline/incremental_sync.go",
+          "start_line": 267,
+          "end_line": 282,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/pipeline:method:retrievalPlanningStage:bd786c78a33acf7e",
+          "file_path": "/Users/kokodak/Documents/docod/internal/pipeline/incremental_sync.go",
+          "start_line": 239,
+          "end_line": 265,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/pipeline:function:dedupeSorted:4fe6fce2cc0ab99d",
+          "file_path": "/Users/kokodak/Documents/docod/internal/pipeline/incremental_sync.go",
+          "start_line": 403,
+          "end_line": 417,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/pipeline:method:impactAnalysisStage:393ec2338bba8d44",
+          "file_path": "/Users/kokodak/Documents/docod/internal/pipeline/incremental_sync.go",
+          "start_line": 226,
+          "end_line": 237,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/pipeline:function:sectionIDsByImpact:27199b91215bda7e",
+          "file_path": "/Users/kokodak/Documents/docod/internal/pipeline/incremental_sync.go",
+          "start_line": 419,
+          "end_line": 433,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/pipeline:method:documentationStage:9b4152b022b6104b",
+          "file_path": "/Users/kokodak/Documents/docod/internal/pipeline/incremental_sync.go",
+          "start_line": 284,
+          "end_line": 341,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/pipeline:struct:updatePlan:21c0f2fd38461bea",
+          "file_path": "/Users/kokodak/Documents/docod/internal/pipeline/incremental_sync.go",
+          "start_line": 34,
+          "end_line": 37,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/pipeline:method:maxEmbedChunksPerRun:8cd2983fb99e4c83",
+          "file_path": "/Users/kokodak/Documents/docod/internal/pipeline/incremental_sync.go",
+          "start_line": 464,
+          "end_line": 474,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/pipeline:method:Run:3f8439872b4d1c4e",
+          "file_path": "/Users/kokodak/Documents/docod/internal/pipeline/incremental_sync.go",
+          "start_line": 53,
+          "end_line": 92,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/pipeline:struct:IncrementalSync:3dee140525e2345b",
+          "file_path": "/Users/kokodak/Documents/docod/internal/pipeline/incremental_sync.go",
+          "start_line": 28,
+          "end_line": 32,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/pipeline:struct:graphUpdateResult:167fbb8b166e7bad",
+          "file_path": "/Users/kokodak/Documents/docod/internal/pipeline/incremental_sync.go",
+          "start_line": 39,
+          "end_line": 43,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/pipeline:method:graphUpdateStage:cfc0e4d95a70e8ea",
+          "file_path": "/Users/kokodak/Documents/docod/internal/pipeline/incremental_sync.go",
+          "start_line": 118,
+          "end_line": 190,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/pipeline:method:printUnresolvedReasonMetrics:ecff1e5ae833ec2c",
+          "file_path": "/Users/kokodak/Documents/docod/internal/pipeline/incremental_sync.go",
+          "start_line": 216,
+          "end_line": 224,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/pipeline:method:detectChangesStage:2163095c0a60bf2c",
+          "file_path": "/Users/kokodak/Documents/docod/internal/pipeline/incremental_sync.go",
+          "start_line": 94,
+          "end_line": 111,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/pipeline:method:buildFullGraph:4257e6599699d7c4",
+          "file_path": "/Users/kokodak/Documents/docod/internal/pipeline/incremental_sync.go",
+          "start_line": 367,
+          "end_line": 375,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/pipeline:method:initStoreStage:64b640fdb021ce3d",
+          "file_path": "/Users/kokodak/Documents/docod/internal/pipeline/incremental_sync.go",
+          "start_line": 113,
+          "end_line": 116,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/pipeline:variable:updatePlan:2fe1efad25a7b54d",
+          "file_path": "/Users/kokodak/Documents/docod/internal/pipeline/incremental_sync.go",
+          "start_line": 317,
+          "end_line": 317,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/pipeline:function:initEngine:0a1222221f71a18a",
+          "file_path": "/Users/kokodak/Documents/docod/internal/pipeline/incremental_sync.go",
+          "start_line": 343,
+          "end_line": 365,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/pipeline:function:NewIncrementalSync:47ac39f7d054a5b5",
+          "file_path": "/Users/kokodak/Documents/docod/internal/pipeline/incremental_sync.go",
+          "start_line": 45,
+          "end_line": 51,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/pipeline:method:runResolverChainStage:b36c947602feb275",
+          "file_path": "/Users/kokodak/Documents/docod/internal/pipeline/incremental_sync.go",
+          "start_line": 192,
+          "end_line": 214,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/main:function:initEngine:402a397dcd39aa6b",
+          "file_path": "/Users/kokodak/Documents/docod/cmd/docod/main.go",
+          "start_line": 65,
+          "end_line": 92,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/main:function:initStore:78750dd43d5bcd36",
+          "file_path": "/Users/kokodak/Documents/docod/cmd/docod/main.go",
+          "start_line": 57,
+          "end_line": 62,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/config:function:LoadConfig:5545fa600c685ce1",
+          "file_path": "/Users/kokodak/Documents/docod/internal/config/config.go",
+          "start_line": 33,
+          "end_line": 85,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/config:struct:Config:2e41c8d21d1a1c38",
+          "file_path": "/Users/kokodak/Documents/docod/internal/config/config.go",
+          "start_line": 12,
+          "end_line": 31,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/config:function:parseBool:25d4da3a1465abf1",
+          "file_path": "/Users/kokodak/Documents/docod/internal/config/config.go",
+          "start_line": 87,
+          "end_line": 94,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/crawler:struct:Crawler:4127617f65e93c80",
+          "file_path": "/Users/kokodak/Documents/docod/internal/crawler/crawler.go",
+          "start_line": 11,
+          "end_line": 14,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/crawler:method:ScanProject:acb69828ee16535a",
+          "file_path": "/Users/kokodak/Documents/docod/internal/crawler/crawler.go",
+          "start_line": 26,
+          "end_line": 61,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/crawler:function:NewCrawler:7b59f7184149084b",
+          "file_path": "/Users/kokodak/Documents/docod/internal/crawler/crawler.go",
+          "start_line": 17,
+          "end_line": 22,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:capabilityConfidence:c690b87be8692d07",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/capability.go",
+          "start_line": 145,
+          "end_line": 162,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:AverageCapabilityConfidence:4c6a324db301da5e",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/capability.go",
+          "start_line": 233,
+          "end_line": 242,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:ExtractCapabilities:148d577636d9c367",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/capability.go",
+          "start_line": 62,
+          "end_line": 114,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:BuildKeyFeaturesSection:d43ad9d16b61bbb5",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/capability.go",
+          "start_line": 179,
+          "end_line": 200,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:classifyCapability:39ed78f118fb471b",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/capability.go",
+          "start_line": 116,
+          "end_line": 136,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:capabilityBehaviors:88b8bec2f4cdc023",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/capability.go",
+          "start_line": 202,
+          "end_line": 219,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:capabilitySnippet:ecec0cc8d468113d",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/capability.go",
+          "start_line": 221,
+          "end_line": 231,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:capabilityTitleIntent:0b944d9e5d46ee64",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/capability.go",
+          "start_line": 138,
+          "end_line": 143,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:isCapabilityCandidate:b582aa0db07cd371",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/capability.go",
+          "start_line": 164,
+          "end_line": 177,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:Capability:906908c373d9f26d",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/capability.go",
+          "start_line": 10,
+          "end_line": 16,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:ModelDoc:e47e3711dcf486df",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 35,
+          "end_line": 39,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:sectionHash:f5c95c1cef4c4d84",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 453,
+          "end_line": 469,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:normalizeSectionID:9d3d701b023da17e",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 495,
+          "end_line": 518,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:loadCompiledSchema:ff969824c4c1a324",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 291,
+          "end_line": 314,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:NormalizeDocModel:aaeb12ee1c28fcd8",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 521,
+          "end_line": 530,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:DocModel:a7dcd04001b4cebd",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 27,
+          "end_line": 33,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:PolicyStyle:b5be2ed1a15caa4e",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 87,
+          "end_line": 95,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:validateDocModelWithSchema:5e7b905e3466dab4",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 243,
+          "end_line": 273,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:uniqueStrings:a651c5eb03ed4676",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 679,
+          "end_line": 690,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:sectionRank:f7e1b8939c29b09a",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 650,
+          "end_line": 657,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:clampPositive:c5571f4eb0818617",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 437,
+          "end_line": 442,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:startsWithHeading:f37427e9b220a42c",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 490,
+          "end_line": 493,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:BuildModelFromMarkdown:2df5a5102126c3e1",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 131,
+          "end_line": 213,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:ModelSect:678f90e5f9625d84",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 41,
+          "end_line": 54,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:ModelMeta:9cc60367a2ff6e73",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 97,
+          "end_line": 102,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:ModelPolicy:12b96638d97f06d8",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 81,
+          "end_line": 85,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:resolveDocModelSchemaPath:ced5393f7e030314",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 275,
+          "end_line": 289,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:RenderMarkdownFromModel:00227b1becc8f10b",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 325,
+          "end_line": 365,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:method:Validate:c7d18d508051bb9d",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 215,
+          "end_line": 241,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:max:0ab8af2ad25467a3",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 692,
+          "end_line": 697,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:ensurePolicyDefaults:85decb2a8e8e647b",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 532,
+          "end_line": 556,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:ensureRootSectionIDs:6c8adad71154f961",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 585,
+          "end_line": 607,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:SaveDocModel:5a6a81efa3e0060d",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 116,
+          "end_line": 129,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:normalizeSectionHeadings:5e6d84085a5c8658",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 623,
+          "end_line": 648,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:method:SectionByID:704ca8a3d86d97c5",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 316,
+          "end_line": 323,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:BuildSourcesFromChunk:23b22b0d9f3ebedf",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 367,
+          "end_line": 414,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:reindexSectionOrder:ca6160dba565ae40",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 609,
+          "end_line": 621,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:SourceRef:6656e1bb0397b464",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 65,
+          "end_line": 73,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:summarizeContent:624ccb3b1a95af10",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 471,
+          "end_line": 488,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:sectionTitleFromID:801eca9184f34783",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 659,
+          "end_line": 677,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:ensureCanonicalRootSections:96618c72abdae6d0",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 558,
+          "end_line": 583,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:EvidenceRef:eb5d5bacfedc1a76",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 56,
+          "end_line": 63,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:MergeSources:6ae7147fc6aac4f4",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 416,
+          "end_line": 435,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:UpdateInfo:a946582430fc1368",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 75,
+          "end_line": 79,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:normalizeSourceRelation:2a592eb2241f5f0e",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 444,
+          "end_line": 451,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:LoadDocModel:8d10d66db5d5f7ae",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/doc_model.go",
+          "start_line": 104,
+          "end_line": 114,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:summarizeEvidenceChunk:9845585a4c9b2a33",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/evidence_hydrator.go",
+          "start_line": 225,
+          "end_line": 245,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:claimHydrationWeight:c13f0b902e64857b",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/evidence_hydrator.go",
+          "start_line": 135,
+          "end_line": 147,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:BuildDraftLLMContext:4fb9cd7bf0bef88d",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/evidence_hydrator.go",
+          "start_line": 32,
+          "end_line": 37,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:hydrateSourceBlock:424ad3f5dfbb0a4f",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/evidence_hydrator.go",
+          "start_line": 159,
+          "end_line": 223,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:defaultDraftLLMBudget:9b41ce33c440e21e",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/evidence_hydrator.go",
+          "start_line": 20,
+          "end_line": 27,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:isFlowClaim:5db86bc9c8261ff3",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/evidence_hydrator.go",
+          "start_line": 149,
+          "end_line": 157,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:buildLayerBContext:4e2c6a8121677204",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/evidence_hydrator.go",
+          "start_line": 70,
+          "end_line": 112,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:draftLLMBudget:5c761322c2061063",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/evidence_hydrator.go",
+          "start_line": 13,
+          "end_line": 18,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:collectHydratedBlocks:8fbdcf171401a886",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/evidence_hydrator.go",
+          "start_line": 114,
+          "end_line": 133,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:buildLayerAContext:3068ae0325db4bc9",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/evidence_hydrator.go",
+          "start_line": 39,
+          "end_line": 68,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:method:GenerateArchitectureSnapshot:bf7f73bde7868b0a",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/mermaid.go",
+          "start_line": 278,
+          "end_line": 374,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:edge:5489c53c9d801d2a",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/mermaid.go",
+          "start_line": 279,
+          "end_line": 282,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:pkgNode:db77ea073d2ee92d",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/mermaid.go",
+          "start_line": 311,
+          "end_line": 314,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:method:GenerateArchitectureFlow:5653ea4cc143283c",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/mermaid.go",
+          "start_line": 70,
+          "end_line": 201,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:method:GenerateFlowChart:dd4530bd393dcefc",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/mermaid.go",
+          "start_line": 48,
+          "end_line": 67,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:method:generatePackageFlow:86d1efd6abc91942",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/mermaid.go",
+          "start_line": 231,
+          "end_line": 275,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:eNode:49e9e7d16c89e23d",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/mermaid.go",
+          "start_line": 333,
+          "end_line": 336,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:pkgNode:bc236f37d22a0a06",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/mermaid.go",
+          "start_line": 244,
+          "end_line": 247,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:topStageExamples:4a0f6deb0951622a",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/mermaid.go",
+          "start_line": 203,
+          "end_line": 229,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:bestStageForChunk:bb7e256c13260d60",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/mermaid.go",
+          "start_line": 376,
+          "end_line": 397,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:method:GeneratePackageDiagram:37cf0bf3a4d77e2e",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/mermaid.go",
+          "start_line": 14,
+          "end_line": 46,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:pair:01664864764ff829",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/mermaid.go",
+          "start_line": 207,
+          "end_line": 210,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:function:sanitizeMermaidID:68ddbcbfb735b4c0",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/mermaid.go",
+          "start_line": 399,
+          "end_line": 413,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:MermaidGenerator:df3d67c5c9234302",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/mermaid.go",
+          "start_line": 12,
+          "end_line": 12,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        },
+        {
+          "symbol_id": "go/generator:struct:edgeKey:20c1f6735623d012",
+          "file_path": "/Users/kokodak/Documents/docod/internal/generator/mermaid.go",
+          "start_line": 85,
+          "end_line": 88,
+          "relation": "primary",
+          "commit_sha": "HEAD",
+          "confidence": 0.9
+        }
+      ],
+      "evidence": {
+        "coverage": 1,
+        "confidence": 1,
+        "chunk_count": 14,
+        "source_count": 166,
+        "query_count": 5,
+        "low_evidence": false
+      },
+      "hash": "sha256:eaf0f6ee95972bea96cce330d583120b1bd39fe716bf67957b663fcf761e9517",
       "last_updated": {
         "commit_sha": "HEAD",
-        "timestamp": "2026-02-06T00:00:00Z"
+        "timestamp": "2026-02-16T10:28:35Z"
       }
     }
   ],
@@ -79,7 +3031,7 @@
   "meta": {
     "repo": ".",
     "default_branch": "main",
-    "generated_at": "2026-02-06T00:00:00Z",
+    "generated_at": "2026-02-16T10:28:35Z",
     "generator_version": "docod-dev"
   }
 }
